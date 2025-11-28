@@ -2,6 +2,13 @@
 export default defineNuxtConfig({
   modules: ['@nuxtjs/tailwindcss'],
   css: ['@/assets/css/tailwind.css'],
+    // FIX: переносимо PostCSS-конфігурацію сюди, як радить Nuxt
+  postcss: {
+    plugins: {
+      tailwindcss: {},
+      autoprefixer: {}
+    }
+  },
   runtimeConfig: {
     // not exposed to client
     
@@ -14,5 +21,6 @@ export default defineNuxtConfig({
   },
   typescript: {
     strict: false
-  }
+  },
+  compatibilityDate: '2025-11-28'
 })

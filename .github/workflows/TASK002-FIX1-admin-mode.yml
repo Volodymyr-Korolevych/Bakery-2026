@@ -1,0 +1,513 @@
+name: TASK002-FIX1 - Admin mode via useAuthUser
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  task002_fix1_admin_mode:
+    name: "TASK002-FIX1 - Apply admin composable and config fixes"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Apply TASK002-FIX1 file replacements
+        run: |
+          mkdir -p composables
+          mkdir -p components
+          mkdir -p middleware
+
+          ####################################
+          # nuxt.config.ts
+          ####################################
+          cat << 'EOF' > nuxt.config.ts
+          // Nuxt 3 config for Bakery-2026
+          export default defineNuxtConfig({
+            modules: ['@nuxtjs/tailwindcss'],
+
+            css: ['@/assets/css/tailwind.css'],
+
+            // PostCSS-конфігурація без окремого postcss.config.cjs
+            postcss: {
+              plugins: {
+                tailwindcss: {},
+                autoprefixer: {}
+              }
+            },
+
+            runtimeConfig: {
+              public: {
+                supabaseUrl: process.env.NUXT_PUBLIC_SUPABASE_URL || '',
+                supabaseAnonKey: process.env.NUXT_PUBLIC_SUPABASE_ANON_KEY || '',
+                siteName: process.env.NUXT_PUBLIC_SITE_NAME || 'Bakery-2026',
+                // Список email-ів адміністраторів доступний на клієнті
+                adminEmails: process.env.NUXT_ADMIN_EMAILS || ''
+              }
+            },
+
+            typescript: {
+              strict: false
+            }
+          })
+          EOF
+
+          ####################################
+          # composables/useAuthUser.ts
+          ####################################
+          cat << 'EOF' > composables/useAuthUser.ts
+          import type { User } from '@supabase/supabase-js'
+
+          export type Profile = {
+            id: string
+            first_name: string | null
+            last_name: string | null
+            phone: string | null
+            created_at: string | null
+          }
+
+          export const useAuthUser = () => {
+            const nuxtApp = useNuxtApp()
+            const config = useRuntimeConfig()
+
+            const user = useState<User | null>('authUser', () => null)
+            const profile = useState<Profile | null>('authProfile', () => null)
+
+            const adminEmailsList = computed(() =>
+              (config.public.adminEmails || '')
+                .split(',')
+                .map((e: string) => e.trim())
+                .filter(Boolean)
+            )
+
+            const isUserAdmin = computed(() => {
+              if (!user.value) return false
+              const email = user.value.email || ''
+              return adminEmailsList.value.includes(email)
+            })
+
+            const loadUser = async () => {
+              const { data } = await nuxtApp.$supabase.auth.getUser()
+              user.value = data.user ?? null
+              if (user.value) {
+                const { data: profileData } = await nuxtApp.$supabase
+                  .from('profiles')
+                  .select('*')
+                  .eq('id', user.value.id)
+                  .maybeSingle()
+                profile.value = profileData as Profile | null
+              } else {
+                profile.value = null
+              }
+            }
+
+            const signUp = async (payload: { email: string; password: string; firstName: string; lastName: string }) => {
+              const { email, password, firstName, lastName } = payload
+              const { data, error } = await nuxtApp.$supabase.auth.signUp({ email, password })
+              if (error) throw error
+              const createdUser = data.user
+              if (createdUser) {
+                const { error: profileError } = await nuxtApp.$supabase.from('profiles').insert({
+                  id: createdUser.id,
+                  first_name: firstName,
+                  last_name: lastName
+                })
+                if (profileError) throw profileError
+              }
+              await loadUser()
+            }
+
+            const signIn = async (payload: { email: string; password: string }) => {
+              const { data, error } = await nuxtApp.$supabase.auth.signInWithPassword(payload)
+              if (error) throw error
+              if (data.user) {
+                await loadUser()
+              }
+            }
+
+            const signOut = async () => {
+              await nuxtApp.$supabase.auth.signOut()
+              user.value = null
+              profile.value = null
+            }
+
+            const updateProfile = async (payload: Partial<Profile>) => {
+              if (!user.value) return
+              const { error } = await nuxtApp.$supabase
+                .from('profiles')
+                .update({
+                  first_name: payload.first_name,
+                  last_name: payload.last_name,
+                  phone: payload.phone
+                })
+                .eq('id', user.value.id)
+              if (error) throw error
+              await loadUser()
+            }
+
+            return {
+              user,
+              profile,
+              isUserAdmin,
+              loadUser,
+              signUp,
+              signIn,
+              signOut,
+              updateProfile
+            }
+          }
+          EOF
+
+          ####################################
+          # middleware/admin.ts
+          ####################################
+          cat << 'EOF' > middleware/admin.ts
+          export default defineNuxtRouteMiddleware(async () => {
+            const { user, loadUser, isUserAdmin } = useAuthUser()
+
+            if (!user.value) {
+              await loadUser()
+            }
+
+            if (!user.value) {
+              return navigateTo('/account?login=1')
+            }
+
+            if (!isUserAdmin.value) {
+              return navigateTo('/')
+            }
+          })
+          EOF
+
+          ####################################
+          # components/AppHeader.vue
+          ####################################
+          cat << 'EOF' > components/AppHeader.vue
+          <template>
+            <header class="border-b bg-white/80 backdrop-blur sticky top-0 z-20">
+              <div class="max-w-5xl mx-auto flex items-center justify-between px-4 py-3">
+                <NuxtLink
+                  to="/"
+                  class="flex items-center gap-2 font-semibold tracking-tight"
+                >
+                  <span
+                    class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-white text-sm font-bold"
+                  >
+                    B
+                  </span>
+                  <span>{{ siteName }}</span>
+                </NuxtLink>
+
+                <nav class="flex items-center gap-4 text-sm">
+                  <NuxtLink to="/categories" class="hover:text-amber-600">
+                    Категорії
+                  </NuxtLink>
+                  <NuxtLink to="/account" class="hover:text-amber-600">
+                    Обліковий запис
+                  </NuxtLink>
+                  <NuxtLink to="/cart" class="relative hover:text-amber-600">
+                    Кошик
+                  </NuxtLink>
+                  <NuxtLink
+                    v-if="isUserAdmin"
+                    to="/admin"
+                    class="inline-flex items-center rounded-full border border-amber-500 px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50"
+                  >
+                    Адмін
+                  </NuxtLink>
+                </nav>
+              </div>
+            </header>
+          </template>
+
+          <script setup lang="ts">
+          const config = useRuntimeConfig()
+          const siteName = config.public.siteName
+
+          const { loadUser, isUserAdmin } = useAuthUser()
+
+          onMounted(async () => {
+            await loadUser()
+          })
+          </script>
+          EOF
+
+          ####################################
+          # pages/account.vue
+          ####################################
+          cat << 'EOF' > pages/account.vue
+          <template>
+            <div class="max-w-5xl mx-auto px-4 py-8 space-y-8">
+              <div v-if="!user" class="grid gap-8 md:grid-cols-2">
+                <form class="space-y-4" @submit.prevent="login">
+                  <h1 class="text-xl font-semibold">Вхід</h1>
+                  <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Email</label>
+                    <input
+                      v-model="loginEmail"
+                      type="email"
+                      required
+                      class="w-full rounded-xl border px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Пароль</label>
+                    <input
+                      v-model="loginPassword"
+                      type="password"
+                      required
+                      class="w-full rounded-xl border px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    class="inline-flex items-center rounded-full bg-amber-500 px-5 py-2 text-sm font-medium text-white hover:bg-amber-600"
+                  >
+                    Увійти
+                  </button>
+                  <p v-if="authError" class="text-sm text-red-600 mt-2">{{ authError }}</p>
+                </form>
+
+                <form class="space-y-4" @submit.prevent="register">
+                  <h2 class="text-xl font-semibold">Реєстрація</h2>
+                  <div class="grid gap-3 md:grid-cols-2">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-600 mb-1">Ім’я</label>
+                      <input
+                        v-model="firstName"
+                        type="text"
+                        required
+                        class="w-full rounded-xl border px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-600 mb-1">Прізвище</label>
+                      <input
+                        v-model="lastName"
+                        type="text"
+                        required
+                        class="w-full rounded-xl border px-3 py-2 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Email</label>
+                    <input
+                      v-model="regEmail"
+                      type="email"
+                      required
+                      class="w-full rounded-xl border px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Пароль</label>
+                    <input
+                      v-model="regPassword"
+                      type="password"
+                      required
+                      class="w-full rounded-xl border px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    class="inline-flex items-center rounded-full bg-slate-900 px-5 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                  >
+                    Зареєструватися
+                  </button>
+                </form>
+              </div>
+
+              <div v-else class="space-y-8">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h1 class="text-2xl font-semibold tracking-tight">Обліковий запис</h1>
+                    <p class="text-sm text-slate-600">
+                      {{ profile?.first_name }} {{ profile?.last_name }} ({{ user.email }})
+                    </p>
+                  </div>
+                  <button
+                    class="text-sm text-slate-600 hover:text-red-600"
+                    @click="handleSignOut"
+                  >
+                    Вийти
+                  </button>
+                </div>
+
+                <div class="grid gap-8 md:grid-cols-2 items-start">
+                  <section class="space-y-4 rounded-2xl border bg-white p-4 shadow-sm text-sm">
+                    <h2 class="text-base font-semibold">Профіль</h2>
+                    <form class="space-y-3" @submit.prevent="saveProfile">
+                      <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Ім’я</label>
+                        <input
+                          v-model="profileFirstName"
+                          type="text"
+                          class="w-full rounded-xl border px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Прізвище</label>
+                        <input
+                          v-model="profileLastName"
+                          type="text"
+                          class="w-full rounded-xl border px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Телефон</label>
+                        <input
+                          v-model="profilePhone"
+                          type="tel"
+                          class="w-full rounded-xl border px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        class="inline-flex items-center rounded-full bg-amber-500 px-4 py-2 text-xs font-medium text-white hover:bg-amber-600"
+                      >
+                        Зберегти зміни
+                      </button>
+                    </form>
+                  </section>
+
+                  <section class="space-y-3 rounded-2xl border bg-white p-4 shadow-sm text-sm">
+                    <h2 class="text-base font-semibold">Мої замовлення</h2>
+                    <div v-if="!orders.length" class="text-sm text-slate-600">
+                      Ви ще не робили замовлень.
+                    </div>
+                    <div v-else class="space-y-2">
+                      <div
+                        v-for="order in orders"
+                        :key="order.id"
+                        class="flex items-center justify-between rounded-xl border px-3 py-2"
+                      >
+                        <div>
+                          <div class="font-medium">Замовлення №{{ order.id }}</div>
+                          <div class="text-xs text-slate-500">
+                            {{ new Date(order.created_at).toLocaleString() }}
+                          </div>
+                        </div>
+                        <div class="text-right text-sm">
+                          <div class="font-semibold text-amber-700">
+                            ₴{{ order.total.toFixed(2) }}
+                          </div>
+                          <div class="text-xs text-slate-500">{{ order.phone }}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <script setup lang="ts">
+          const { user, profile, loadUser, signIn, signUp, signOut, updateProfile, isUserAdmin } = useAuthUser()
+          const { fetchMyOrders } = useOrders()
+
+          const router = useRouter()
+
+          const orders = ref<any[]>([])
+
+          const loginEmail = ref('')
+          const loginPassword = ref('')
+          const regEmail = ref('')
+          const regPassword = ref('')
+          const firstName = ref('')
+          const lastName = ref('')
+          const authError = ref<string | null>(null)
+
+          const profileFirstName = ref('')
+          const profileLastName = ref('')
+          const profilePhone = ref('')
+
+          const redirectIfAdmin = async () => {
+            if (user.value && isUserAdmin.value) {
+              await router.push('/admin')
+              return true
+            }
+            return false
+          }
+
+          const initAuthed = async () => {
+            await loadUser()
+            if (!user.value) return
+
+            const redirected = await redirectIfAdmin()
+            if (redirected) {
+              return
+            }
+
+            if (profile.value) {
+              profileFirstName.value = profile.value.first_name || ''
+              profileLastName.value = profile.value.last_name || ''
+              profilePhone.value = profile.value.phone || ''
+            }
+            orders.value = await fetchMyOrders()
+          }
+
+          const login = async () => {
+            authError.value = null
+            try {
+              await signIn({ email: loginEmail.value, password: loginPassword.value })
+              await initAuthed()
+            } catch (e: any) {
+              authError.value = e.message || 'Помилка входу'
+            }
+          }
+
+          const register = async () => {
+            authError.value = null
+            try {
+              await signUp({
+                email: regEmail.value,
+                password: regPassword.value,
+                firstName: firstName.value,
+                lastName: lastName.value
+              })
+              await initAuthed()
+            } catch (e: any) {
+              authError.value = e.message || 'Помилка реєстрації'
+            }
+          }
+
+          const saveProfile = async () => {
+            if (!profile.value) return
+            await updateProfile({
+              id: profile.value.id,
+              first_name: profileFirstName.value,
+              last_name: profileLastName.value,
+              phone: profilePhone.value,
+              created_at: profile.value.created_at
+            })
+            await initAuthed()
+          }
+
+          const handleSignOut = async () => {
+            await signOut()
+            await router.push('/account')
+          }
+
+          onMounted(async () => {
+            await initAuthed()
+          })
+          </script>
+          EOF
+
+      - name: Commit and push TASK002-FIX1 changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git add nuxt.config.ts composables/useAuthUser.ts middleware/admin.ts components/AppHeader.vue pages/account.vue
+            git commit -m "TASK002-FIX1: admin via useAuthUser.isUserAdmin"
+            git push
+          else
+            echo "No changes to commit."
+          fi

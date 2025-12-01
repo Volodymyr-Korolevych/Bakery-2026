@@ -183,22 +183,8 @@ const profileFirstName = ref('')
 const profileLastName = ref('')
 const profilePhone = ref('')
 
-const redirectIfAdmin = async () => {
-  if (user.value && isUserAdmin.value) {
-    await router.push('/admin')
-    return true
-  }
-  return false
-}
-
-const initAuthed = async () => {
-  await loadUser()
+const loadProfileAndOrders = async () => {
   if (!user.value) return
-
-  const redirected = await redirectIfAdmin()
-  if (redirected) {
-    return
-  }
 
   if (profile.value) {
     profileFirstName.value = profile.value.first_name || ''
@@ -208,11 +194,23 @@ const initAuthed = async () => {
   orders.value = await fetchMyOrders()
 }
 
+const initAuthed = async () => {
+  await loadUser()
+  await loadProfileAndOrders()
+}
+
 const login = async () => {
   authError.value = null
   try {
     await signIn({ email: loginEmail.value, password: loginPassword.value })
-    await initAuthed()
+    await loadUser()
+
+    if (isUserAdmin.value) {
+      await router.push('/admin')
+      return
+    }
+
+    await loadProfileAndOrders()
   } catch (e: any) {
     authError.value = e.message || 'Помилка входу'
   }
@@ -227,7 +225,14 @@ const register = async () => {
       firstName: firstName.value,
       lastName: lastName.value
     })
-    await initAuthed()
+    await loadUser()
+
+    if (isUserAdmin.value) {
+      await router.push('/admin')
+      return
+    }
+
+    await loadProfileAndOrders()
   } catch (e: any) {
     authError.value = e.message || 'Помилка реєстрації'
   }
@@ -242,7 +247,7 @@ const saveProfile = async () => {
     phone: profilePhone.value,
     created_at: profile.value.created_at
   })
-  await initAuthed()
+  await loadProfileAndOrders()
 }
 
 const handleSignOut = async () => {

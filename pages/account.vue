@@ -164,21 +164,10 @@
 </template>
 
 <script setup lang="ts">
-const { user, profile, loadUser, signIn, signUp, signOut, updateProfile } = useAuthUser()
+const { user, profile, loadUser, signIn, signUp, signOut, updateProfile, isUserAdmin } = useAuthUser()
 const { fetchMyOrders } = useOrders()
 
-const config = useRuntimeConfig()
 const router = useRouter()
-
-const adminEmails = (config.adminEmails || '')
-  .split(',')
-  .map((e: string) => e.trim())
-  .filter(Boolean)
-
-const isAdminEmail = (email: string | null | undefined) => {
-  if (!email) return false
-  return adminEmails.includes(email)
-}
 
 const orders = ref<any[]>([])
 
@@ -195,7 +184,7 @@ const profileLastName = ref('')
 const profilePhone = ref('')
 
 const redirectIfAdmin = async () => {
-  if (user.value && isAdminEmail(user.value.email)) {
+  if (user.value && isUserAdmin.value) {
     await router.push('/admin')
     return true
   }
@@ -206,7 +195,6 @@ const initAuthed = async () => {
   await loadUser()
   if (!user.value) return
 
-  // Якщо це адмінський email — одразу переводимо в режим адміна
   const redirected = await redirectIfAdmin()
   if (redirected) {
     return

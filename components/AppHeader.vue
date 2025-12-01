@@ -24,7 +24,7 @@
           Кошик
         </NuxtLink>
         <NuxtLink
-          v-if="isAdmin"
+          v-if="isUserAdmin"
           to="/admin"
           class="inline-flex items-center rounded-full border border-amber-500 px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50"
         >
@@ -39,20 +39,9 @@
 const config = useRuntimeConfig()
 const siteName = config.public.siteName
 
-const adminEmails = (config.adminEmails || '')
-  .split(',')
-  .map((e: string) => e.trim())
-  .filter(Boolean)
-
-const { user, loadUser } = useAuthUser()
+const { loadUser, isUserAdmin } = useAuthUser()
 
 onMounted(async () => {
   await loadUser()
-})
-
-const isAdmin = computed(() => {
-  if (!user.value) return false
-  const email = user.value.email || ''
-  return adminEmails.includes(email)
 })
 </script>

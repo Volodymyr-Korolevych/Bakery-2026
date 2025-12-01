@@ -10,8 +10,23 @@ export type Profile = {
 
 export const useAuthUser = () => {
   const nuxtApp = useNuxtApp()
+  const config = useRuntimeConfig()
+
   const user = useState<User | null>('authUser', () => null)
   const profile = useState<Profile | null>('authProfile', () => null)
+
+  const adminEmailsList = computed(() =>
+    (config.public.adminEmails || '')
+      .split(',')
+      .map((e: string) => e.trim())
+      .filter(Boolean)
+  )
+
+  const isUserAdmin = computed(() => {
+    if (!user.value) return false
+    const email = user.value.email || ''
+    return adminEmailsList.value.includes(email)
+  })
 
   const loadUser = async () => {
     const { data } = await nuxtApp.$supabase.auth.getUser()
@@ -75,6 +90,7 @@ export const useAuthUser = () => {
   return {
     user,
     profile,
+    isUserAdmin,
     loadUser,
     signUp,
     signIn,

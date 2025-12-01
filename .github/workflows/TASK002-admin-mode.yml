@@ -3,6 +3,10 @@ name: TASK002 - Admin mode redirect & header
 on:
   workflow_dispatch:
 
+# ДАЄМО цьому workflow право змінювати вміст репозиторію
+permissions:
+  contents: write
+
 jobs:
   task002_admin_mode:
     name: "TASK002 - Apply admin mode changes"

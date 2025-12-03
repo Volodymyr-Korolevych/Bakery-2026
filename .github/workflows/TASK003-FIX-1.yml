@@ -1,0 +1,1148 @@
+name: TASK003-FIX-1
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  task003_fix_1:
+    name: "TASK003-FIX-1 - fix storage RLS error handling + auto slug"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Apply TASK003-FIX-1 file replacements
+        run: |
+          mkdir -p composables
+          mkdir -p pages/admin
+
+          cat << 'EOF' > composables/useStorageImages.ts
+          import type { SupabaseClient } from '@supabase/supabase-js'
+
+          const STORAGE_BUCKET = 'bakery-images' // перевір назву bucket у Supabase
+
+          type Folder = 'products' | 'categories'
+
+          export const useStorageImages = () => {
+            const nuxtApp = useNuxtApp()
+            const supabase = nuxtApp.$supabase as SupabaseClient
+
+            /**
+             * Завантажити файл у Supabase Storage і повернути publicUrl.
+             * Якщо RLS забороняє вставку — повертаємо null (не кидаємо помилку),
+             * щоб не ламати saveProduct/saveCategory.
+             */
+            const uploadImage = async (folder: Folder, file: File, slug: string) => {
+              if (!file) return null
+
+              const ext = file.name.split('.').pop() || 'jpg'
+              const sanitizedSlug = slug || file.name.split('.')[0]
+              const path = `${folder}/${sanitizedSlug}-${Date.now()}.${ext}`
+
+              try {
+                const { error: uploadError } = await supabase.storage
+                  .from(STORAGE_BUCKET)
+                  .upload(path, file, {
+                    cacheControl: '3600',
+                    upsert: true
+                  })
+
+                if (uploadError) {
+                  console.error('uploadImage error', uploadError)
+                  if (typeof uploadError.message === 'string' &&
+                      uploadError.message.includes('row-level security')) {
+                    console.warn(
+                      'Supabase Storage RLS: дозволи на INSERT для цього bucket. ' +
+                      'Перевір політики в розділі Storage → Policies.'
+                    )
+                  }
+                  return null
+                }
+
+                const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path)
+                return data.publicUrl
+              } catch (e) {
+                console.error('uploadImage exception', e)
+                return null
+              }
+            }
+
+            /**
+             * Хелпер: чи URL зовнішній (Supabase / інший CDN), чи локальний (/images/...).
+             */
+            const isExternalUrl = (url?: string | null) => {
+              if (!url) return false
+              return url.startsWith('http://') || url.startsWith('https://')
+            }
+
+            return {
+              uploadImage,
+              isExternalUrl
+            }
+          }
+          EOF
+
+          cat << 'EOF' > pages/admin/index.vue
+          <template>
+            <div class="max-w-6xl mx-auto px-4 py-8 space-y-6">
+              <header class="flex items-center justify-between">
+                <div>
+                  <h1 class="text-2xl font-semibold tracking-tight">Адмін-панель</h1>
+                  <p class="text-sm text-slate-600">
+                    Керування категоріями, продуктами, точками самовивозу та перегляд замовлень.
+                  </p>
+                </div>
+              </header>
+
+              <!-- Tabs -->
+              <div class="border-b flex gap-4 text-sm">
+                <button
+                  v-for="tab in tabs"
+                  :key="tab.id"
+                  class="px-3 py-2 -mb-px border-b-2"
+                  :class="tab.id === activeTab
+                    ? 'border-amber-500 text-amber-700 font-medium'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'"
+                  @click="activeTab = tab.id"
+                >
+                  {{ tab.label }}
+                </button>
+              </div>
+
+              <!-- TAB: CATEGORIES -->
+              <div v-if="activeTab === 'categories'" class="grid md:grid-cols-[2fr,1.4fr] gap-6 items-start">
+                <!-- Список категорій -->
+                <section class="space-y-4">
+                  <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-semibold">Категорії</h2>
+                    <button
+                      class="text-xs rounded-full border px-3 py-1 hover:bg-slate-50"
+                      @click="startNewCategory"
+                    >
+                      + Нова категорія
+                    </button>
+                  </div>
+
+                  <div class="rounded-2xl border bg-white overflow-hidden">
+                    <table class="w-full text-sm">
+                      <thead class="bg-slate-50 text-xs text-slate-500">
+                        <tr>
+                          <th class="px-3 py-2 text-left">ID</th>
+                          <th class="px-3 py-2 text-left">Назва</th>
+                          <th class="px-3 py-2 text-left">Slug</th>
+                          <th class="px-3 py-2 text-left">Sort</th>
+                          <th class="px-3 py-2 text-left">Активна</th>
+                          <th class="px-3 py-2 text-right">Дії</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="cat in categories"
+                          :key="cat.id"
+                          class="border-t hover:bg-slate-50/60 cursor-pointer"
+                          @click="selectCategory(cat)"
+                        >
+                          <td class="px-3 py-2 text-xs text-slate-500">#{{ cat.id }}</td>
+                          <td class="px-3 py-2">{{ cat.name }}</td>
+                          <td class="px-3 py-2 text-xs text-slate-500">{{ cat.slug }}</td>
+                          <td class="px-3 py-2 text-xs">{{ cat.sort }}</td>
+                          <td class="px-3 py-2 text-xs">
+                            <span
+                              class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px]"
+                              :class="cat.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'"
+                            >
+                              {{ cat.is_active ? 'Так' : 'Ні' }}
+                            </span>
+                          </td>
+                          <td class="px-3 py-2 text-right text-xs text-slate-500">
+                            Редагувати
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <!-- Права панель: форма категорії -->
+                <section class="space-y-4 rounded-2xl border bg-white p-4 shadow-sm text-sm">
+                  <h3 class="text-base font-semibold">
+                    {{ categoryForm.id ? 'Редагування категорії' : 'Нова категорія' }}
+                  </h3>
+
+                  <form class="space-y-3" @submit.prevent="saveCategory">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-600 mb-1">Назва</label>
+                      <input
+                        v-model="categoryForm.name"
+                        type="text"
+                        required
+                        class="w-full rounded-xl border px-3 py-2 text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label class="block text-xs font-medium text-slate-600 mb-1">Slug</label>
+                      <input
+                        v-model="categoryForm.slug"
+                        type="text"
+                        class="w-full rounded-xl border px-3 py-2 text-sm"
+                      />
+                      <p class="text-[11px] text-slate-400 mt-1">
+                        Якщо залишити порожнім — згенеруємо автоматично з назви.
+                      </p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                      <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Sort</label>
+                        <input
+                          v-model.number="categoryForm.sort"
+                          type="number"
+                          class="w-full rounded-xl border px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div class="flex items-end gap-2">
+                        <input
+                          id="cat-active"
+                          v-model="categoryForm.is_active"
+                          type="checkbox"
+                          class="h-4 w-4 rounded border"
+                        />
+                        <label for="cat-active" class="text-xs text-slate-700">Активна</label>
+                      </div>
+                    </div>
+
+                    <!-- Поточне зображення -->
+                    <div class="space-y-2">
+                      <label class="block text-xs font-medium text-slate-600 mb-1">Зображення</label>
+                      <div v-if="categoryForm.image_url" class="flex items-center gap-3">
+                        <img
+                          :src="categoryForm.image_url"
+                          alt=""
+                          class="h-16 w-16 rounded-lg object-cover border"
+                        />
+                        <span class="text-[11px] text-slate-500 break-all">
+                          {{ categoryForm.image_url }}
+                        </span>
+                      </div>
+                      <p class="text-[11px] text-slate-400">
+                        Якщо не обирати файл, залишиться поточне зображення.
+                      </p>
+                      <input type="file" accept="image/*" @change="onCategoryImageChange" />
+                    </div>
+
+                    <div class="flex items-center justify-between pt-2">
+                      <button
+                        type="submit"
+                        class="inline-flex items-center rounded-full bg-amber-500 px-4 py-2 text-xs font-medium text-white hover:bg-amber-600"
+                      >
+                        Зберегти
+                      </button>
+                      <button
+                        v-if="categoryForm.id"
+                        type="button"
+                        class="text-xs text-red-600 hover:text-red-700"
+                        @click="deleteCategory"
+                      >
+                        Видалити категорію
+                      </button>
+                    </div>
+                  </form>
+                </section>
+              </div>
+
+              <!-- TAB: PRODUCTS -->
+              <div v-else-if="activeTab === 'products'" class="grid md:grid-cols-[2.2fr,1.4fr] gap-6 items-start">
+                <!-- Список продуктів -->
+                <section class="space-y-4">
+                  <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-semibold">Продукти</h2>
+                    <button
+                      class="text-xs rounded-full border px-3 py-1 hover:bg-slate-50"
+                      @click="startNewProduct"
+                    >
+                      + Новий продукт
+                    </button>
+                  </div>
+
+                  <div class="rounded-2xl border bg-white overflow-hidden">
+                    <table class="w-full text-sm">
+                      <thead class="bg-slate-50 text-xs text-slate-500">
+                        <tr>
+                          <th class="px-3 py-2 text-left">ID</th>
+                          <th class="px-3 py-2 text-left">Назва</th>
+                          <th class="px-3 py-2 text-left">Категорія</th>
+                          <th class="px-3 py-2 text-left">Ціна</th>
+                          <th class="px-3 py-2 text-left">Вага (г)</th>
+                          <th class="px-3 py-2 text-left">Активний</th>
+                          <th class="px-3 py-2 text-right">Дії</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="prod in products"
+                          :key="prod.id"
+                          class="border-t hover:bg-slate-50/60 cursor-pointer"
+                          @click="selectProduct(prod)"
+                        >
+                          <td class="px-3 py-2 text-xs text-slate-500">#{{ prod.id }}</td>
+                          <td class="px-3 py-2">{{ prod.name }}</td>
+                          <td class="px-3 py-2 text-xs text-slate-500">
+                            {{ categoryNameById(prod.category_id) }}
+                          </td>
+                          <td class="px-3 py-2 text-xs">₴{{ Number(prod.price).toFixed(2) }}</td>
+                          <td class="px-3 py-2 text-xs">{{ prod.weight_grams || '—' }}</td>
+                          <td class="px-3 py-2 text-xs">
+                            <span
+                              class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px]"
+                              :class="prod.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'"
+                            >
+                              {{ prod.is_active ? 'Так' : 'Ні' }}
+                            </span>
+                          </td>
+                          <td class="px-3 py-2 text-right text-xs text-slate-500">
+                            Редагувати
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <!-- Права панель: форма продукту -->
+                <section class="space-y-4 rounded-2xl border bg-white p-4 shadow-sm text-sm">
+                  <h3 class="text-base font-semibold">
+                    {{ productForm.id ? 'Редагування продукту' : 'Новий продукт' }}
+                  </h3>
+
+                  <form class="space-y-3" @submit.prevent="saveProduct">
+                    <div class="grid md:grid-cols-2 gap-3">
+                      <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Назва</label>
+                        <input
+                          v-model="productForm.name"
+                          type="text"
+                          required
+                          class="w-full rounded-xl border px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Slug</label>
+                        <input
+                          v-model="productForm.slug"
+                          type="text"
+                          class="w-full rounded-xl border px-3 py-2 text-sm"
+                        />
+                        <p class="text-[11px] text-slate-400 mt-1">
+                          Якщо залишити порожнім — згенеруємо з назви.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-3">
+                      <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Категорія</label>
+                        <select
+                          v-model.number="productForm.category_id"
+                          required
+                          class="w-full rounded-xl border px-3 py-2 text-sm"
+                        >
+                          <option disabled value="">Оберіть категорію</option>
+                          <option
+                            v-for="cat in categories"
+                            :key="cat.id"
+                            :value="cat.id"
+                          >
+                            {{ cat.name }}
+                          </option>
+                        </select>
+                      </div>
+                      <div class="grid grid-cols-2 gap-3">
+                        <div>
+                          <label class="block text-xs font-medium text-slate-600 mb-1">Ціна, ₴</label>
+                          <input
+                            v-model.number="productForm.price"
+                            type="number"
+                            step="0.01"
+                            required
+                            class="w-full rounded-xl border px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label class="block text-xs font-medium text-slate-600 mb-1">Вага, г</label>
+                          <input
+                            v-model.number="productForm.weight_grams"
+                            type="number"
+                            class="w-full rounded-xl border px-3 py-2 text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-3">
+                      <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Stock</label>
+                        <input
+                          v-model.number="productForm.stock"
+                          type="number"
+                          class="w-full rounded-xl border px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div class="flex items-end gap-2">
+                        <input
+                          id="prod-active"
+                          v-model="productForm.is_active"
+                          type="checkbox"
+                          class="h-4 w-4 rounded border"
+                        />
+                        <label for="prod-active" class="text-xs text-slate-700">Активний</label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label class="block text-xs font-medium text-slate-600 mb-1">Опис</label>
+                      <textarea
+                        v-model="productForm.description"
+                        rows="4"
+                        class="w-full rounded-xl border px-3 py-2 text-sm"
+                      />
+                    </div>
+
+                    <!-- Зображення продукту -->
+                    <div class="space-y-2">
+                      <label class="block text-xs font-medium text-slate-600 mb-1">Зображення</label>
+                      <div v-if="productForm.image_url" class="flex items-center gap-3">
+                        <img
+                          :src="productForm.image_url"
+                          alt=""
+                          class="h-16 w-16 rounded-lg object-cover border"
+                        />
+                        <span class="text-[11px] text-slate-500 break-all">
+                          {{ productForm.image_url }}
+                        </span>
+                      </div>
+                      <p class="text-[11px] text-slate-400">
+                        Якщо не обирати файл, залишиться поточне зображення.
+                        Для початкових товарів використовується /images/&lt;slug&gt;.jpg.
+                      </p>
+                      <input type="file" accept="image/*" @change="onProductImageChange" />
+                    </div>
+
+                    <div class="flex items-center justify-between pt-2">
+                      <button
+                        type="submit"
+                        class="inline-flex items-center rounded-full bg-amber-500 px-4 py-2 text-xs font-medium text-white hover:bg-amber-600"
+                      >
+                        Зберегти продукт
+                      </button>
+                      <button
+                        v-if="productForm.id"
+                        type="button"
+                        class="text-xs text-red-600 hover:text-red-700"
+                        @click="deleteProduct"
+                      >
+                        Видалити продукт
+                      </button>
+                    </div>
+                  </form>
+                </section>
+              </div>
+
+              <!-- TAB: PICKUP LOCATIONS -->
+              <div v-else-if="activeTab === 'pickup'" class="grid md:grid-cols-[2fr,1.4fr] gap-6 items-start">
+                <section class="space-y-4">
+                  <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-semibold">Точки самовивозу</h2>
+                    <button
+                      class="text-xs rounded-full border px-3 py-1 hover:bg-slate-50"
+                      @click="startNewPickup"
+                    >
+                      + Нова локація
+                    </button>
+                  </div>
+
+                  <div class="rounded-2xl border bg-white overflow-hidden">
+                    <table class="w-full text-sm">
+                      <thead class="bg-slate-50 text-xs text-slate-500">
+                        <tr>
+                          <th class="px-3 py-2 text-left">ID</th>
+                          <th class="px-3 py-2 text-left">Назва</th>
+                          <th class="px-3 py-2 text-left">Адреса</th>
+                          <th class="px-3 py-2 text-left">Години роботи</th>
+                          <th class="px-3 py-2 text-left">Активна</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="loc in pickupLocations"
+                          :key="loc.id"
+                          class="border-t hover:bg-slate-50/60 cursor-pointer"
+                          @click="selectPickup(loc)"
+                        >
+                          <td class="px-3 py-2 text-xs text-slate-500">#{{ loc.id }}</td>
+                          <td class="px-3 py-2">{{ loc.name }}</td>
+                          <td class="px-3 py-2 text-xs text-slate-500">{{ loc.address }}</td>
+                          <td class="px-3 py-2 text-xs">{{ loc.work_hours }}</td>
+                          <td class="px-3 py-2 text-xs">
+                            <span
+                              class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px]"
+                              :class="loc.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'"
+                            >
+                              {{ loc.is_active ? 'Так' : 'Ні' }}
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <section class="space-y-4 rounded-2xl border bg-white p-4 shadow-sm text-sm">
+                  <h3 class="text-base font-semibold">
+                    {{ pickupForm.id ? 'Редагування локації' : 'Нова локація' }}
+                  </h3>
+
+                  <form class="space-y-3" @submit.prevent="savePickup">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-600 mb-1">Назва</label>
+                      <input
+                        v-model="pickupForm.name"
+                        type="text"
+                        required
+                        class="w-full rounded-xl border px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-600 mb-1">Адреса</label>
+                      <textarea
+                        v-model="pickupForm.address"
+                        rows="2"
+                        required
+                        class="w-full rounded-xl border px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-600 mb-1">Години роботи</label>
+                      <input
+                        v-model="pickupForm.work_hours"
+                        type="text"
+                        class="w-full rounded-xl border px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <input
+                        id="pickup-active"
+                        v-model="pickupForm.is_active"
+                        type="checkbox"
+                        class="h-4 w-4 rounded border"
+                      />
+                      <label for="pickup-active" class="text-xs text-slate-700">Активна</label>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-2">
+                      <button
+                        type="submit"
+                        class="inline-flex items-center rounded-full bg-amber-500 px-4 py-2 text-xs font-medium text-white hover:bg-amber-600"
+                      >
+                        Зберегти
+                      </button>
+                      <button
+                        v-if="pickupForm.id"
+                        type="button"
+                        class="text-xs text-red-600 hover:text-red-700"
+                        @click="deletePickup"
+                      >
+                        Видалити
+                      </button>
+                    </div>
+                  </form>
+                </section>
+              </div>
+
+              <!-- TAB: ORDERS (READ ONLY) -->
+              <div v-else-if="activeTab === 'orders'" class="grid md:grid-cols-[2fr,1.4fr] gap-6 items-start">
+                <section class="space-y-4">
+                  <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-semibold">Замовлення</h2>
+                  </div>
+
+                  <div class="rounded-2xl border bg-white overflow-hidden">
+                    <table class="w-full text-sm">
+                      <thead class="bg-slate-50 text-xs text-slate-500">
+                        <tr>
+                          <th class="px-3 py-2 text-left">ID</th>
+                          <th class="px-3 py-2 text-left">Дата</th>
+                          <th class="px-3 py-2 text-left">Телефон</th>
+                          <th class="px-3 py-2 text-left">Самовивіз</th>
+                          <th class="px-3 py-2 text-right">Сума</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="ord in orders"
+                          :key="ord.id"
+                          class="border-t hover:bg-slate-50/60 cursor-pointer"
+                          @click="selectOrder(ord)"
+                        >
+                          <td class="px-3 py-2 text-xs text-slate-500">#{{ ord.id }}</td>
+                          <td class="px-3 py-2 text-xs">
+                            {{ new Date(ord.created_at).toLocaleString() }}
+                          </td>
+                          <td class="px-3 py-2 text-xs">{{ ord.phone }}</td>
+                          <td class="px-3 py-2 text-xs">
+                            {{ pickupNameById(ord.pickup_location_id) }}
+                          </td>
+                          <td class="px-3 py-2 text-xs text-right">
+                            ₴{{ Number(ord.total).toFixed(2) }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <!-- Деталі замовлення -->
+                <section class="space-y-4 rounded-2xl border bg-white p-4 shadow-sm text-sm">
+                  <h3 class="text-base font-semibold">Деталі замовлення</h3>
+
+                  <div v-if="!selectedOrder">
+                    <p class="text-sm text-slate-500">
+                      Оберіть замовлення ліворуч, щоб переглянути деталі.
+                    </p>
+                  </div>
+                  <div v-else class="space-y-3">
+                    <div class="flex items-center justify-between">
+                      <div>
+                        <div class="text-sm font-medium">Замовлення #{{ selectedOrder.id }}</div>
+                        <div class="text-xs text-slate-500">
+                          {{ new Date(selectedOrder.created_at).toLocaleString() }}
+                        </div>
+                      </div>
+                      <div class="text-right text-sm">
+                        <div class="font-semibold text-amber-700">
+                          ₴{{ Number(selectedOrder.total).toFixed(2) }}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="text-xs text-slate-600">
+                      <div><span class="font-medium">Телефон:</span> {{ selectedOrder.phone }}</div>
+                      <div v-if="selectedOrder.notes">
+                        <span class="font-medium">Коментар:</span> {{ selectedOrder.notes }}
+                      </div>
+                    </div>
+
+                    <div class="pt-2 border-t mt-2">
+                      <h4 class="text-xs font-semibold text-slate-700 mb-2">Позиції</h4>
+                      <div v-if="orderItems.length === 0" class="text-xs text-slate-500">
+                        Позицій немає.
+                      </div>
+                      <ul v-else class="space-y-1 text-xs">
+                        <li
+                          v-for="item in orderItems"
+                          :key="item.id"
+                          class="flex items-center justify-between"
+                        >
+                          <span>
+                            {{ productNameById(item.product_id) }}
+                            <span class="text-slate-400">× {{ item.qty }}</span>
+                          </span>
+                          <span>₴{{ Number(item.price).toFixed(2) }}</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </template>
+
+          <script setup lang="ts">
+          const nuxtApp = useNuxtApp()
+          const supabase = nuxtApp.$supabase
+          const { uploadImage } = useStorageImages()
+
+          const tabs = [
+            { id: 'categories', label: 'Категорії' },
+            { id: 'products', label: 'Продукти' },
+            { id: 'pickup', label: 'Самовивіз' },
+            { id: 'orders', label: 'Замовлення' }
+          ] as const
+
+          type TabId = (typeof tabs)[number]['id']
+
+          const activeTab = ref<TabId>('categories')
+
+          // ----------------- SLUG HELPER -----------------
+          const createSlug = (value: string | null | undefined): string => {
+            if (!value) return ''
+            return value
+              .toString()
+              .trim()
+              .toLowerCase()
+              // усе, що не літера/цифра, замінюємо на дефіс
+              .replace(/[^\p{L}\p{N}]+/gu, '-')
+              .replace(/^-+|-+$/g, '')
+          }
+
+          /* ------------ CATEGORIES ------------ */
+
+          type Category = {
+            id: number
+            name: string
+            slug: string
+            image_url: string | null
+            sort: number | null
+            is_active: boolean
+          }
+
+          const categories = ref<Category[]>([])
+          const categoryForm = reactive<Partial<Category>>({
+            id: undefined,
+            name: '',
+            slug: '',
+            image_url: '',
+            sort: 0,
+            is_active: true
+          })
+          const categoryImageFile = ref<File | null>(null)
+
+          const loadCategories = async () => {
+            const { data, error } = await supabase
+              .from('categories')
+              .select('*')
+              .order('sort', { ascending: true })
+            if (error) {
+              console.error('loadCategories', error)
+              return
+            }
+            categories.value = data as Category[]
+          }
+
+          const startNewCategory = () => {
+            Object.assign(categoryForm, {
+              id: undefined,
+              name: '',
+              slug: '',
+              image_url: '',
+              sort: (categories.value[categories.value.length - 1]?.sort || 0) + 10,
+              is_active: true
+            })
+            categoryImageFile.value = null
+          }
+
+          const selectCategory = (cat: Category) => {
+            Object.assign(categoryForm, cat)
+            categoryImageFile.value = null
+          }
+
+          const onCategoryImageChange = (e: Event) => {
+            const target = e.target as HTMLInputElement
+            const file = target.files?.[0] || null
+            categoryImageFile.value = file
+          }
+
+          const saveCategory = async () => {
+            try {
+              // якщо slug порожній — генеруємо з name
+              if ((!categoryForm.slug || !categoryForm.slug.trim()) && categoryForm.name) {
+                categoryForm.slug = createSlug(categoryForm.name)
+              }
+
+              let imageUrl = categoryForm.image_url || null
+
+              if (categoryImageFile.value && categoryForm.slug) {
+                const uploadedUrl = await uploadImage('categories', categoryImageFile.value, categoryForm.slug)
+                if (uploadedUrl) {
+                  imageUrl = uploadedUrl
+                }
+              } else if (!categoryForm.id && !imageUrl && categoryForm.slug) {
+                imageUrl = `/images/${categoryForm.slug}.jpg`
+              }
+
+              const payload = {
+                name: categoryForm.name,
+                slug: categoryForm.slug,
+                image_url: imageUrl,
+                sort: categoryForm.sort ?? 0,
+                is_active: categoryForm.is_active ?? true
+              }
+
+              if (categoryForm.id) {
+                const { error } = await supabase
+                  .from('categories')
+                  .update(payload)
+                  .eq('id', categoryForm.id)
+                if (error) throw error
+              } else {
+                const { data, error } = await supabase
+                  .from('categories')
+                  .insert(payload)
+                  .select()
+                  .single()
+                if (error) throw error
+                Object.assign(categoryForm, data)
+              }
+
+              await loadCategories()
+            } catch (e) {
+              console.error('saveCategory error', e)
+            }
+          }
+
+          const deleteCategory = async () => {
+            if (!categoryForm.id) return
+            if (!confirm('Видалити цю категорію?')) return
+
+            try {
+              const { error } = await supabase
+                .from('categories')
+                .delete()
+                .eq('id', categoryForm.id)
+              if (error) throw error
+              startNewCategory()
+              await loadCategories()
+            } catch (e) {
+              console.error('deleteCategory error', e)
+            }
+          }
+
+          /* ------------ PRODUCTS ------------ */
+
+          type Product = {
+            id: number
+            category_id: number
+            name: string
+            slug: string
+            price: number
+            description: string | null
+            image_url: string | null
+            stock: number | null
+            weight_grams: number | null
+            is_active: boolean
+          }
+
+          const products = ref<Product[]>([])
+          const productForm = reactive<Partial<Product>>({
+            id: undefined,
+            category_id: undefined,
+            name: '',
+            slug: '',
+            price: 0,
+            description: '',
+            image_url: '',
+            stock: 0,
+            weight_grams: null,
+            is_active: true
+          })
+          const productImageFile = ref<File | null>(null)
+
+          const loadProducts = async () => {
+            const { data, error } = await supabase
+              .from('products')
+              .select('*')
+              .order('id', { ascending: true })
+            if (error) {
+              console.error('loadProducts', error)
+              return
+            }
+            products.value = data as Product[]
+          }
+
+          const startNewProduct = () => {
+            Object.assign(productForm, {
+              id: undefined,
+              category_id: undefined,
+              name: '',
+              slug: '',
+              price: 0,
+              description: '',
+              image_url: '',
+              stock: 0,
+              weight_grams: null,
+              is_active: true
+            })
+            productImageFile.value = null
+          }
+
+          const selectProduct = (prod: Product) => {
+            Object.assign(productForm, prod)
+            productImageFile.value = null
+          }
+
+          const onProductImageChange = (e: Event) => {
+            const target = e.target as HTMLInputElement
+            const file = target.files?.[0] || null
+            productImageFile.value = file
+          }
+
+          const saveProduct = async () => {
+            try {
+              if (!productForm.category_id) {
+                alert('Оберіть категорію')
+                return
+              }
+
+              // якщо slug порожній — генеруємо з name
+              if ((!productForm.slug || !productForm.slug.trim()) && productForm.name) {
+                productForm.slug = createSlug(productForm.name)
+              }
+
+              let imageUrl = productForm.image_url || null
+
+              if (productImageFile.value && productForm.slug) {
+                const uploadedUrl = await uploadImage('products', productImageFile.value, productForm.slug)
+                if (uploadedUrl) {
+                  imageUrl = uploadedUrl
+                }
+              } else if (!productForm.id && !imageUrl && productForm.slug) {
+                // спроба використати локальне зображення
+                imageUrl = `/images/${productForm.slug}.jpg`
+              }
+
+              const payload = {
+                category_id: productForm.category_id,
+                name: productForm.name,
+                slug: productForm.slug,
+                price: productForm.price ?? 0,
+                description: productForm.description ?? '',
+                image_url: imageUrl,
+                stock: productForm.stock ?? 0,
+                weight_grams: productForm.weight_grams,
+                is_active: productForm.is_active ?? true
+              }
+
+              if (productForm.id) {
+                const { error } = await supabase
+                  .from('products')
+                  .update(payload)
+                  .eq('id', productForm.id)
+                if (error) throw error
+              } else {
+                const { data, error } = await supabase
+                  .from('products')
+                  .insert(payload)
+                  .select()
+                  .single()
+                if (error) throw error
+                Object.assign(productForm, data)
+              }
+
+              await loadProducts()
+            } catch (e) {
+              console.error('saveProduct error', e)
+            }
+          }
+
+          const deleteProduct = async () => {
+            if (!productForm.id) return
+            if (!confirm('Видалити цей продукт?')) return
+
+            try {
+              const { error } = await supabase
+                .from('products')
+                .delete()
+                .eq('id', productForm.id)
+              if (error) throw error
+              startNewProduct()
+              await loadProducts()
+            } catch (e) {
+              console.error('deleteProduct error', e)
+            }
+          }
+
+          /* ------------ PICKUP LOCATIONS ------------ */
+
+          type PickupLocation = {
+            id: number
+            name: string
+            address: string
+            work_hours: string | null
+            is_active: boolean
+          }
+
+          const pickupLocations = ref<PickupLocation[]>([])
+          const pickupForm = reactive<Partial<PickupLocation>>({
+            id: undefined,
+            name: '',
+            address: '',
+            work_hours: '',
+            is_active: true
+          })
+
+          const loadPickupLocations = async () => {
+            const { data, error } = await supabase
+              .from('pickup_locations')
+              .select('*')
+              .order('id', { ascending: true })
+            if (error) {
+              console.error('loadPickupLocations', error)
+              return
+            }
+            pickupLocations.value = data as PickupLocation[]
+          }
+
+          const startNewPickup = () => {
+            Object.assign(pickupForm, {
+              id: undefined,
+              name: '',
+              address: '',
+              work_hours: '',
+              is_active: true
+            })
+          }
+
+          const selectPickup = (loc: PickupLocation) => {
+            Object.assign(pickupForm, loc)
+          }
+
+          const savePickup = async () => {
+            try {
+              const payload = {
+                name: pickupForm.name,
+                address: pickupForm.address,
+                work_hours: pickupForm.work_hours ?? '',
+                is_active: pickupForm.is_active ?? true
+              }
+
+              if (pickupForm.id) {
+                const { error } = await supabase
+                  .from('pickup_locations')
+                  .update(payload)
+                  .eq('id', pickupForm.id)
+                if (error) throw error
+              } else {
+                const { data, error } = await supabase
+                  .from('pickup_locations')
+                  .insert(payload)
+                  .select()
+                  .single()
+                if (error) throw error
+                Object.assign(pickupForm, data)
+              }
+
+              await loadPickupLocations()
+            } catch (e) {
+              console.error('savePickup error', e)
+            }
+          }
+
+          const deletePickup = async () => {
+            if (!pickupForm.id) return
+            if (!confirm('Видалити цю локацію?')) return
+
+            try {
+              const { error } = await supabase
+                .from('pickup_locations')
+                .delete()
+                .eq('id', pickupForm.id)
+              if (error) throw error
+              startNewPickup()
+              await loadPickupLocations()
+            } catch (e) {
+              console.error('deletePickup error', e)
+            }
+          }
+
+          /* ------------ ORDERS (READ ONLY) ------------ */
+
+          type Order = {
+            id: number
+            user_id: string
+            total: number
+            pickup_location_id: number | null
+            phone: string
+            notes: string | null
+            created_at: string
+          }
+
+          type OrderItem = {
+            id: number
+            order_id: number
+            product_id: number
+            qty: number
+            price: number
+          }
+
+          const orders = ref<Order[]>([])
+          const selectedOrder = ref<Order | null>(null)
+          const orderItems = ref<OrderItem[]>([])
+
+          const loadOrders = async () => {
+            const { data, error } = await supabase
+              .from('orders')
+              .select('*')
+              .order('created_at', { ascending: false })
+            if (error) {
+              console.error('loadOrders', error)
+              return
+            }
+            orders.value = data as Order[]
+          }
+
+          const loadOrderItems = async (orderId: number) => {
+            const { data, error } = await supabase
+              .from('order_items')
+              .select('*')
+              .eq('order_id', orderId)
+            if (error) {
+              console.error('loadOrderItems', error)
+              return
+            }
+            orderItems.value = data as OrderItem[]
+          }
+
+          const selectOrder = async (ord: Order) => {
+            selectedOrder.value = ord
+            await loadOrderItems(ord.id)
+          }
+
+          /* ------------ HELPERS ------------ */
+
+          const categoryNameById = (id: number | null | undefined) => {
+            if (!id) return ''
+            const cat = categories.value.find(c => c.id === id)
+            return cat ? cat.name : ''
+          }
+
+          const pickupNameById = (id: number | null | undefined) => {
+            if (!id) return '—'
+            const loc = pickupLocations.value.find(l => l.id === id)
+            return loc ? loc.name : '—'
+          }
+
+          const productNameById = (id: number) => {
+            const prod = products.value.find(p => p.id === id)
+            return prod ? prod.name : \`#\${id}\`
+          }
+
+          /* ------------ INIT ------------ */
+
+          onMounted(async () => {
+            await Promise.all([
+              loadCategories(),
+              loadProducts(),
+              loadPickupLocations(),
+              loadOrders()
+            ])
+          })
+          </script>
+          EOF
+
+      - name: Commit and push TASK003-FIX-1 changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git add composables/useStorageImages.ts pages/admin/index.vue
+            git commit -m "TASK003-FIX-1: storage RLS handling + auto slug"
+            git push
+          else
+            echo "No changes to commit."
+          fi

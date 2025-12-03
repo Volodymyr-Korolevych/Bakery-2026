@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-const STORAGE_BUCKET = 'bakery-images' // перевір назву bucket у Supabase
+const STORAGE_BUCKET = 'bakery-images'
 
 type Folder = 'products' | 'categories'
 
@@ -8,56 +8,83 @@ export const useStorageImages = () => {
   const nuxtApp = useNuxtApp()
   const supabase = nuxtApp.$supabase as SupabaseClient
 
-  /**
-   * Завантажити файл у Supabase Storage і повернути publicUrl.
-   * Якщо RLS забороняє вставку — повертаємо null (не кидаємо помилку),
-   * щоб не ламати saveProduct/saveCategory.
-   */
+  // ---------------------------
+  // Upload image to Supabase
+  // ---------------------------
   const uploadImage = async (folder: Folder, file: File, slug: string) => {
     if (!file) return null
 
     const ext = file.name.split('.').pop() || 'jpg'
-    const sanitizedSlug = slug || file.name.split('.')[0]
-    const path = `${folder}/${sanitizedSlug}-${Date.now()}.${ext}`
+    const filename = `${slug}-${Date.now()}.${ext}`
+    const path = `${folder}/${filename}`
 
-    try {
-      const { error: uploadError } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .upload(path, file, {
-          cacheControl: '3600',
-          upsert: true
-        })
+    const { error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(path, file, { upsert: true })
 
-      if (uploadError) {
-        console.error('uploadImage error', uploadError)
-        if (typeof uploadError.message === 'string' &&
-            uploadError.message.includes('row-level security')) {
-          console.warn(
-            'Supabase Storage RLS: дозволи на INSERT для цього bucket. ' +
-            'Перевір політики в розділі Storage → Policies.'
-          )
-        }
-        return null
-      }
-
-      const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path)
-      return data.publicUrl
-    } catch (e) {
-      console.error('uploadImage exception', e)
+    if (error) {
+      console.error('uploadImage error:', error)
       return null
     }
+
+    const { data } = supabase.storage
+      .from(STORAGE_BUCKET)
+      .getPublicUrl(path)
+
+    return data.publicUrl
   }
 
-  /**
-   * Хелпер: чи URL зовнішній (Supabase / інший CDN), чи локальний (/images/...).
-   */
+  // ---------------------------
+  // Detect external URL
+  // ---------------------------
   const isExternalUrl = (url?: string | null) => {
     if (!url) return false
     return url.startsWith('http://') || url.startsWith('https://')
   }
 
+  // ---------------------------
+  // Extract internal path from public Supabase URL
+  // ---------------------------
+  const parsePathFromPublicUrl = (publicUrl: string): string | null => {
+    try {
+      const u = new URL(publicUrl)
+      const segments = u.pathname.split('/') // /storage/v1/object/public/bucket/path/to/file.jpg
+
+      const bucketIndex = segments.indexOf(STORAGE_BUCKET)
+      if (bucketIndex === -1) return null
+
+      return segments.slice(bucketIndex + 1).join('/') // path/to/file.jpg
+    } catch (e) {
+      console.error('parsePathFromPublicUrl error:', e)
+      return null
+    }
+  }
+
+  // ---------------------------
+  // Remove image from Supabase Storage
+  // ---------------------------
+  const removeImageByPublicUrl = async (publicUrl?: string | null) => {
+    if (!publicUrl) return
+    if (!isExternalUrl(publicUrl)) return // локальні /images/... не чіпаємо
+
+    const path = parsePathFromPublicUrl(publicUrl)
+    if (!path) {
+      console.warn('Cannot parse storage path from URL:', publicUrl)
+      return
+    }
+
+    const { error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .remove([path])
+
+    if (error) {
+      console.error('removeImage error:', error)
+    }
+  }
+
   return {
     uploadImage,
-    isExternalUrl
+    isExternalUrl,
+    removeImageByPublicUrl
   }
 }

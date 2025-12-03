@@ -129,7 +129,8 @@
             <label class="block text-xs font-medium text-slate-600 mb-1">Зображення</label>
 
             <div v-if="productForm.image_url" class="flex items-center gap-3">
-              <img :src="productForm.image_url" alt="" class="h-16 w-16 rounded-lg object-cover border" />
+              <img v-if="imageIsExternal" :src="productForm.image_url" alt="" class="h-16 w-16 rounded-lg object-cover border" />
+              <img v-else :src="'/images/'+ productForm.image_url" alt="" class="h-16 w-16 rounded-lg object-cover border" />
               <div class="text-[11px] text-slate-500 break-all space-y-0.5">
                 <div>{{ productForm.image_url }}</div>
                 <div class="text-[10px]">
@@ -175,7 +176,7 @@ definePageMeta({
 
 const nuxtApp = useNuxtApp()
 const supabase = nuxtApp.$supabase
-const { uploadImage, isExternalUrl } = useStorageImages()
+const { uploadImage, isExternalUrl, removeImageByPublicUrl } = useStorageImages()
 
 // ----------------- SLUG HELPER (укр → латиниця) -----------------
 const createSlug = (value: string | null | undefined): string => {
@@ -361,22 +362,40 @@ const saveProduct = async () => {
   }
 }
 
+
 const deleteProduct = async () => {
   if (!productForm.id) return
-  if (!confirm('Видалити цей продукт?')) return
+
+  const confirmed = confirm('Видалити цей продукт?')
+  if (!confirmed) return
 
   try {
+    // 1) якщо є зовнішнє фото — пробуємо видалити з Supabase Storage
+    if (productForm.image_url && isExternalUrl(productForm.image_url as string)) {
+      await removeImageByPublicUrl(productForm.image_url as string)
+    }
+
+    // 2) видаляємо запис із таблиці products
     const { error } = await supabase
       .from('products')
       .delete()
       .eq('id', productForm.id)
-    if (error) throw error
+
+    if (error) {
+      console.error('Delete product error:', error)
+      alert('Помилка при видаленні продукту: ' + error.message)
+      return
+    }
+
+    // 3) очищаємо форму і оновлюємо список
     startNewProduct()
     await loadProducts()
-  } catch (e) {
-    console.error('deleteProduct error', e)
+  } catch (err) {
+    console.error('deleteProduct unexpected error:', err)
   }
 }
+
+
 
 const categoryNameById = (id: number | null | undefined) => {
   if (!id) return ''

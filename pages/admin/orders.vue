@@ -211,7 +211,7 @@ const pickupNameById = (id: number | null | undefined) => {
 
 const productNameById = (id: number) => {
   const prod = products.value.find(p => p.id === id)
-  return prod ? prod.name : \`#\${id}\`
+  return prod ? prod.name : `#${id}`
 }
 
 onMounted(async () => {

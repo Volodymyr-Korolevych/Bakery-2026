@@ -7,10 +7,7 @@
           Керування продуктами: ціни, описи, вага, фото та належність до категорій.
         </p>
       </div>
-      <NuxtLink
-        to="/admin"
-        class="text-xs text-slate-500 hover:text-slate-700 underline underline-offset-2"
-      >
+      <NuxtLink to="/admin" class="text-xs text-slate-500 hover:text-slate-700 underline underline-offset-2">
         ← до панелі
       </NuxtLink>
     </header>
@@ -20,10 +17,7 @@
       <section class="space-y-4">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-semibold">Список продуктів</h2>
-          <button
-            class="text-xs rounded-full border px-3 py-1 hover:bg-slate-50"
-            @click="startNewProduct"
-          >
+          <button class="text-xs rounded-full border px-3 py-1 hover:bg-slate-50" @click="startNewProduct">
             + Новий продукт
           </button>
         </div>
@@ -42,12 +36,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="prod in products"
-                :key="prod.id"
-                class="border-t hover:bg-slate-50/60 cursor-pointer"
-                @click="selectProduct(prod)"
-              >
+              <tr v-for="prod in products" :key="prod.id" class="border-t hover:bg-slate-50/60 cursor-pointer"
+                @click="selectProduct(prod)">
                 <td class="px-3 py-2 text-xs text-slate-500">#{{ prod.id }}</td>
                 <td class="px-3 py-2">{{ prod.name }}</td>
                 <td class="px-3 py-2 text-xs text-slate-500">
@@ -56,10 +46,8 @@
                 <td class="px-3 py-2 text-xs">₴{{ Number(prod.price).toFixed(2) }}</td>
                 <td class="px-3 py-2 text-xs">{{ prod.weight_grams || '—' }}</td>
                 <td class="px-3 py-2 text-xs">
-                  <span
-                    class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px]"
-                    :class="prod.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'"
-                  >
+                  <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px]"
+                    :class="prod.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
                     {{ prod.is_active ? 'Так' : 'Ні' }}
                   </span>
                 </td>
@@ -82,20 +70,12 @@
           <div class="grid md:grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Назва</label>
-              <input
-                v-model="productForm.name"
-                type="text"
-                required
-                class="w-full rounded-xl border px-3 py-2 text-sm"
-              />
+              <input v-model="productForm.name" type="text" required
+                class="w-full rounded-xl border px-3 py-2 text-sm" />
             </div>
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Slug (латиниця)</label>
-              <input
-                v-model="productForm.slug"
-                type="text"
-                class="w-full rounded-xl border px-3 py-2 text-sm"
-              />
+              <input v-model="productForm.slug" type="text" class="w-full rounded-xl border px-3 py-2 text-sm" />
               <p class="text-[11px] text-slate-400 mt-1">
                 Якщо залишити порожнім — згенеруємо з назви (uk → латиниця).
               </p>
@@ -105,17 +85,10 @@
           <div class="grid md:grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Категорія</label>
-              <select
-                v-model.number="productForm.category_id"
-                required
-                class="w-full rounded-xl border px-3 py-2 text-sm"
-              >
+              <select v-model.number="productForm.category_id" required
+                class="w-full rounded-xl border px-3 py-2 text-sm">
                 <option disabled value="">Оберіть категорію</option>
-                <option
-                  v-for="cat in categories"
-                  :key="cat.id"
-                  :value="cat.id"
-                >
+                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
                   {{ cat.name }}
                 </option>
               </select>
@@ -123,21 +96,13 @@
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Ціна, ₴</label>
-                <input
-                  v-model.number="productForm.price"
-                  type="number"
-                  step="0.01"
-                  required
-                  class="w-full rounded-xl border px-3 py-2 text-sm"
-                />
+                <input v-model.number="productForm.price" type="number" step="0.01" required
+                  class="w-full rounded-xl border px-3 py-2 text-sm" />
               </div>
               <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Вага, г</label>
-                <input
-                  v-model.number="productForm.weight_grams"
-                  type="number"
-                  class="w-full rounded-xl border px-3 py-2 text-sm"
-                />
+                <input v-model.number="productForm.weight_grams" type="number"
+                  class="w-full rounded-xl border px-3 py-2 text-sm" />
               </div>
             </div>
           </div>
@@ -145,70 +110,55 @@
           <div class="grid md:grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Stock</label>
-              <input
-                v-model.number="productForm.stock"
-                type="number"
-                class="w-full rounded-xl border px-3 py-2 text-sm"
-              />
+              <input v-model.number="productForm.stock" type="number"
+                class="w-full rounded-xl border px-3 py-2 text-sm" />
             </div>
             <div class="flex items-end gap-2">
-              <input
-                id="prod-active"
-                v-model="productForm.is_active"
-                type="checkbox"
-                class="h-4 w-4 rounded border"
-              />
+              <input id="prod-active" v-model="productForm.is_active" type="checkbox" class="h-4 w-4 rounded border" />
               <label for="prod-active" class="text-xs text-slate-700">Активний</label>
             </div>
           </div>
 
           <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Опис</label>
-            <textarea
-              v-model="productForm.description"
-              rows="4"
-              class="w-full rounded-xl border px-3 py-2 text-sm"
-            />
+            <textarea v-model="productForm.description" rows="4" class="w-full rounded-xl border px-3 py-2 text-sm" />
           </div>
 
           <!-- Зображення продукту -->
           <div class="space-y-2">
             <label class="block text-xs font-medium text-slate-600 mb-1">Зображення</label>
+
             <div v-if="productForm.image_url" class="flex items-center gap-3">
-              <img
-                :src="productForm.image_url"
-                alt=""
-                class="h-16 w-16 rounded-lg object-cover border"
-              />
-              <span class="text-[11px] text-slate-500 break-all">
-                {{ productForm.image_url }}
-              </span>
+              <img :src="productForm.image_url" alt="" class="h-16 w-16 rounded-lg object-cover border" />
+              <div class="text-[11px] text-slate-500 break-all space-y-0.5">
+                <div>{{ productForm.image_url }}</div>
+                <div class="text-[10px]">
+                  Тип:
+                  <span v-if="imageIsExternal" class="text-emerald-600">
+                    зовнішнє (Supabase / CDN)
+                  </span>
+                  <span v-else class="text-slate-600">
+                    внутрішнє (/images/…)
+                  </span>
+                </div>
+              </div>
             </div>
+
             <p class="text-[11px] text-slate-400">
               Якщо не обирати файл, залишиться поточне зображення.
               Для стартових товарів використовується /images/&lt;slug&gt;.jpg.
             </p>
-            <input
-              :key="productImageInputKey"
-              type="file"
-              accept="image/*"
-              @change="onProductImageChange"
-            />
+
+            <input :key="productImageInputKey" type="file" accept="image/*" @change="onProductImageChange" />
           </div>
 
           <div class="flex items-center justify-between pt-2">
-            <button
-              type="submit"
-              class="inline-flex items-center rounded-full bg-amber-500 px-4 py-2 text-xs font-medium text-white hover:bg-amber-600"
-            >
+            <button type="submit"
+              class="inline-flex items-center rounded-full bg-amber-500 px-4 py-2 text-xs font-medium text-white hover:bg-amber-600">
               Зберегти продукт
             </button>
-            <button
-              v-if="productForm.id"
-              type="button"
-              class="text-xs text-red-600 hover:text-red-700"
-              @click="deleteProduct"
-            >
+            <button v-if="productForm.id" type="button" class="text-xs text-red-600 hover:text-red-700"
+              @click="deleteProduct">
               Видалити продукт
             </button>
           </div>
@@ -225,7 +175,7 @@ definePageMeta({
 
 const nuxtApp = useNuxtApp()
 const supabase = nuxtApp.$supabase
-const { uploadImage } = useStorageImages()
+const { uploadImage, isExternalUrl } = useStorageImages()
 
 // ----------------- SLUG HELPER (укр → латиниця) -----------------
 const createSlug = (value: string | null | undefined): string => {
@@ -291,6 +241,10 @@ const productForm = reactive<Partial<Product>>({
 })
 const productImageFile = ref<File | null>(null)
 const productImageInputKey = ref(0)
+
+const imageIsExternal = computed(() =>
+  isExternalUrl(productForm.image_url || '')
+)
 
 const resetProductImageInput = () => {
   productImageFile.value = null
@@ -361,12 +315,14 @@ const saveProduct = async () => {
 
     let imageUrl = productForm.image_url || null
 
+    // якщо обрали новий файл — завжди заливаємо в Supabase (зовнішній URL)
     if (productImageFile.value && productForm.slug) {
       const uploadedUrl = await uploadImage('products', productImageFile.value, productForm.slug)
       if (uploadedUrl) {
         imageUrl = uploadedUrl
       }
     } else if (!productForm.id && !imageUrl && productForm.slug) {
+      // новий продукт без власного URL → пробуємо локальне зображення
       imageUrl = `/images/${productForm.slug}.jpg`
     }
 

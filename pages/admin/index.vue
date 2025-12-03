@@ -100,11 +100,10 @@
             <input
               v-model="categoryForm.slug"
               type="text"
-              required
               class="w-full rounded-xl border px-3 py-2 text-sm"
             />
             <p class="text-[11px] text-slate-400 mt-1">
-              Використовується в URL та для локальних зображень /images/&lt;slug&gt;.jpg
+              Якщо залишити порожнім — згенеруємо автоматично з назви.
             </p>
           </div>
 
@@ -247,9 +246,11 @@
               <input
                 v-model="productForm.slug"
                 type="text"
-                required
                 class="w-full rounded-xl border px-3 py-2 text-sm"
               />
+              <p class="text-[11px] text-slate-400 mt-1">
+                Якщо залишити порожнім — згенеруємо з назви.
+              </p>
             </div>
           </div>
 
@@ -586,6 +587,18 @@ type TabId = (typeof tabs)[number]['id']
 
 const activeTab = ref<TabId>('categories')
 
+// ----------------- SLUG HELPER -----------------
+const createSlug = (value: string | null | undefined): string => {
+  if (!value) return ''
+  return value
+    .toString()
+    .trim()
+    .toLowerCase()
+    // усе, що не літера/цифра, замінюємо на дефіс
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
 /* ------------ CATEGORIES ------------ */
 
 type Category = {
@@ -645,10 +658,18 @@ const onCategoryImageChange = (e: Event) => {
 
 const saveCategory = async () => {
   try {
+    // якщо slug порожній — генеруємо з name
+    if ((!categoryForm.slug || !categoryForm.slug.trim()) && categoryForm.name) {
+      categoryForm.slug = createSlug(categoryForm.name)
+    }
+
     let imageUrl = categoryForm.image_url || null
 
     if (categoryImageFile.value && categoryForm.slug) {
-      imageUrl = await uploadImage('categories', categoryImageFile.value, categoryForm.slug)
+      const uploadedUrl = await uploadImage('categories', categoryImageFile.value, categoryForm.slug)
+      if (uploadedUrl) {
+        imageUrl = uploadedUrl
+      }
     } else if (!categoryForm.id && !imageUrl && categoryForm.slug) {
       imageUrl = `/images/${categoryForm.slug}.jpg`
     }
@@ -776,11 +797,20 @@ const saveProduct = async () => {
       return
     }
 
+    // якщо slug порожній — генеруємо з name
+    if ((!productForm.slug || !productForm.slug.trim()) && productForm.name) {
+      productForm.slug = createSlug(productForm.name)
+    }
+
     let imageUrl = productForm.image_url || null
 
     if (productImageFile.value && productForm.slug) {
-      imageUrl = await uploadImage('products', productImageFile.value, productForm.slug)
+      const uploadedUrl = await uploadImage('products', productImageFile.value, productForm.slug)
+      if (uploadedUrl) {
+        imageUrl = uploadedUrl
+      }
     } else if (!productForm.id && !imageUrl && productForm.slug) {
+      // спроба використати локальне зображення
       imageUrl = `/images/${productForm.slug}.jpg`
     }
 

@@ -129,8 +129,10 @@
             <label class="block text-xs font-medium text-slate-600 mb-1">Зображення</label>
 
             <div v-if="productForm.image_url" class="flex items-center gap-3">
-              <img v-if="imageIsExternal" :src="productForm.image_url" alt="" class="h-16 w-16 rounded-lg object-cover border" />
-              <img v-else :src="'/images/'+ productForm.image_url" alt="" class="h-16 w-16 rounded-lg object-cover border" />
+              <img v-if="imageIsExternal" :src="productForm.image_url" alt=""
+                class="h-16 w-16 rounded-lg object-cover border" />
+              <img v-else :src="'/images/'+ productForm.image_url" alt=""
+                class="h-16 w-16 rounded-lg object-cover border" />
               <div class="text-[11px] text-slate-500 break-all space-y-0.5">
                 <div>{{ productForm.image_url }}</div>
                 <div class="text-[10px]">
@@ -150,7 +152,27 @@
               Для стартових товарів використовується /images/&lt;slug&gt;.jpg.
             </p>
 
-            <input :key="productImageInputKey" type="file" accept="image/*" @change="onProductImageChange" />
+            <div class="space-y-1">
+              <label class="text-xs text-slate-600 font-medium">Завантажити зображення</label>
+
+              <div class="flex items-center gap-3">
+                <!-- прихований справжній file input -->
+                <input ref="fileInputRef" :key="productImageInputKey" type="file" accept="image/*" class="hidden"
+                  @change="onProductImageChange" />
+
+                <!-- кастомна кнопка -->
+                <button type="button" class="px-3 py-1.5 text-xs rounded-full bg-slate-200 hover:bg-slate-300"
+                  @click="fileInputRef?.click()">
+                  Обрати файл
+                </button>
+
+                <!-- назва вибраного файлу -->
+                <span class="text-xs text-slate-500">
+                  {{ selectedFileName || 'Файл не вибрано' }}
+                </span>
+              </div>
+            </div>
+
           </div>
 
           <div class="flex items-center justify-between pt-2">
@@ -177,6 +199,13 @@ definePageMeta({
 const nuxtApp = useNuxtApp()
 const supabase = nuxtApp.$supabase
 const { uploadImage, isExternalUrl, removeImageByPublicUrl } = useStorageImages()
+
+
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const selectedFileName = ref<string>('')
+
+
+
 
 // ----------------- SLUG HELPER (укр → латиниця) -----------------
 const createSlug = (value: string | null | undefined): string => {
@@ -250,6 +279,7 @@ const imageIsExternal = computed(() =>
 const resetProductImageInput = () => {
   productImageFile.value = null
   productImageInputKey.value++
+  selectedFileName.value = ''   // або 'Файл не вибрано' – як тобі більше подобається
 }
 
 const loadCategories = async () => {
@@ -297,11 +327,14 @@ const selectProduct = (prod: Product) => {
   resetProductImageInput()
 }
 
+
 const onProductImageChange = (e: Event) => {
   const target = e.target as HTMLInputElement
   const file = target.files?.[0] || null
   productImageFile.value = file
+  selectedFileName.value = file ? file.name : 'Файл не вибрано'
 }
+
 
 const saveProduct = async () => {
   try {

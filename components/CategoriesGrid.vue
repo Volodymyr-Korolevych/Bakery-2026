@@ -25,6 +25,7 @@
 
 <script setup lang="ts">
 import type { Category } from '~/composables/useCatalog'
+const { isExternalUrl } = useStorageImages()
 
 const { fetchCategories } = useCatalog()
 const categories = ref<Category[]>([])
@@ -32,7 +33,7 @@ const pending = ref(true)
 const error = ref<Error | null>(null)
 
 const imageUrl = (path: string) => {
-  return path
+  return isExternalUrl(path) ? path : `/images/${path}`
 }
 
 onMounted(async () => {

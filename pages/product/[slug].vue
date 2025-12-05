@@ -7,7 +7,7 @@
         <div class="aspect-[4/3] w-full overflow-hidden rounded-2xl bg-slate-100">
           <img
             v-if="product.image_url"
-            :src="product.image_url"
+            :src= "imageUrl(product.image_url)"
             :alt="product.name"
             class="h-full w-full object-cover"
           />
@@ -38,6 +38,7 @@
 
 <script setup lang="ts">
 import type { Product } from '~/composables/useCatalog'
+const { isExternalUrl } = useStorageImages()
 
 const route = useRoute()
 const { fetchProductBySlug } = useCatalog()
@@ -63,4 +64,8 @@ onMounted(async () => {
   product.value = await fetchProductBySlug(slug)
   pending.value = false
 })
+
+const imageUrl = (path: string) => {
+  return isExternalUrl(path) ? path : `/images/${path}`
+}
 </script>

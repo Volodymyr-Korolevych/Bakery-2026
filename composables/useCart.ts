@@ -63,9 +63,15 @@ export const useCart = () => {
     persist()
   }
 
+  const hasProduct = (productId: number) => {
+    return cart.value.items.some((i) => i.product_id === productId)
+  }
+
   const total = computed(() =>
     cart.value.items.reduce((sum, item) => sum + item.price * item.qty, 0)
   )
+
+  const distinctItemsCount = computed(() => cart.value.items.length)
 
   if (process.client && cart.value.items.length === 0) {
     loadFromStorage()
@@ -77,6 +83,8 @@ export const useCart = () => {
     removeItem,
     updateQty,
     clearCart,
-    total
+    hasProduct,
+    total,
+    distinctItemsCount
   }
 }

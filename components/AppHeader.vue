@@ -17,12 +17,21 @@
         <NuxtLink to="/categories" class="hover:text-amber-600">
           Категорії
         </NuxtLink>
+
         <NuxtLink to="/account" class="hover:text-amber-600">
           Обліковий запис
         </NuxtLink>
-        <NuxtLink to="/cart" class="relative hover:text-amber-600">
-          Кошик
+
+        <NuxtLink to="/cart" class="relative inline-flex items-center gap-1 hover:text-amber-600">
+          <span>Кошик</span>
+          <span
+            v-if="distinctItemsCount > 0"
+            class="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-medium text-white"
+          >
+            {{ distinctItemsCount }}
+          </span>
         </NuxtLink>
+
         <NuxtLink
           v-if="isUserAdmin"
           to="/admin"
@@ -40,6 +49,7 @@ const config = useRuntimeConfig()
 const siteName = config.public.siteName
 
 const { loadUser, isUserAdmin } = useAuthUser()
+const { distinctItemsCount } = useCart()
 
 onMounted(async () => {
   await loadUser()

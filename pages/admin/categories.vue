@@ -13,7 +13,6 @@
     </header>
 
     <div class="grid md:grid-cols-[2fr,1.4fr] gap-6 items-start">
-      <!-- Список категорій -->
       <section class="space-y-4">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-semibold">Список категорій</h2>
@@ -47,16 +46,13 @@
                     {{ cat.is_active ? 'Так' : 'Ні' }}
                   </span>
                 </td>
-                <td class="px-3 py-2 text-right text-xs text-slate-500">
-                  Редагувати
-                </td>
+                <td class="px-3 py-2 text-right text-xs text-slate-500">Редагувати</td>
               </tr>
             </tbody>
           </table>
         </div>
       </section>
 
-      <!-- Права панель: форма категорії -->
       <section class="space-y-4 rounded-2xl border bg-white p-4 shadow-sm text-sm">
         <h3 class="text-base font-semibold">
           {{ categoryForm.id ? 'Редагування категорії' : 'Нова категорія' }}
@@ -73,7 +69,7 @@
             <label class="block text-xs font-medium text-slate-600 mb-1">Slug (латиниця)</label>
             <input v-model="categoryForm.slug" type="text" class="w-full rounded-xl border px-3 py-2 text-sm" />
             <p class="text-[11px] text-slate-400 mt-1">
-              Якщо залишити порожнім — згенеруємо автоматично з назви (uk → латиниця).
+              Якщо залишити порожнім — згенеруємо автоматично з назви.
             </p>
           </div>
 
@@ -89,17 +85,14 @@
             </div>
           </div>
 
-          <!-- Зображення -->
           <div class="space-y-2">
             <label class="block text-xs font-medium text-slate-600 mb-1">Зображення</label>
 
             <div v-if="categoryForm.image_url" class="flex items-center gap-3">
-              <!-- як у products: зовнішнє / внутрішнє -->
               <img v-if="imageIsExternal" :src="categoryForm.image_url" alt=""
                 class="h-16 w-16 rounded-lg object-cover border" />
               <img v-else :src="'/images/' + categoryForm.image_url" alt=""
                 class="h-16 w-16 rounded-lg object-cover border" />
-
               <div class="text-[11px] text-slate-500 break-all space-y-0.5">
                 <div>{{ categoryForm.image_url }}</div>
                 <div class="text-[10px]">
@@ -116,24 +109,22 @@
 
             <p class="text-[11px] text-slate-400">
               Якщо не обирати файл, залишиться поточне зображення.
-              Для стартових категорій можна використовувати /images/&lt;slug&gt;.jpg.
             </p>
 
-            <!-- кастомний file input з укр. текстами -->
             <div class="space-y-1">
               <label class="text-xs text-slate-600 font-medium">Завантажити зображення</label>
 
               <div class="flex items-center gap-3">
-                <input ref="categoryFileInputRef" :key="categoryImageInputKey" type="file" accept="image/*"
-                  class="hidden" @change="onCategoryImageChange" />
+                <input ref="fileInputRef" :key="categoryImageInputKey" type="file" accept="image/*" class="hidden"
+                  @change="onCategoryImageChange" />
 
                 <button type="button" class="px-3 py-1.5 text-xs rounded-full bg-slate-200 hover:bg-slate-300"
-                  @click="categoryFileInputRef?.click()">
+                  @click="fileInputRef?.click()">
                   Обрати файл
                 </button>
 
                 <span class="text-xs text-slate-500">
-                  {{ categorySelectedFileName || 'Файл не вибрано' }}
+                  {{ selectedFileName || 'Файл не вибрано' }}
                 </span>
               </div>
             </div>
@@ -164,9 +155,9 @@ const nuxtApp = useNuxtApp()
 const supabase = nuxtApp.$supabase
 const { uploadImage, isExternalUrl, removeImageByPublicUrl } = useStorageImages()
 
-// ---------- SLUG (укр → латиниця) ----------
 const createSlug = (value: string | null | undefined): string => {
   if (!value) return ''
+
   const map: Record<string, string> = {
     а: 'a', б: 'b', в: 'v', г: 'h', ґ: 'g', д: 'd', е: 'e', є: 'ie',
     ж: 'zh', з: 'z', и: 'y', і: 'i', ї: 'yi', й: 'i', к: 'k', л: 'l',
@@ -180,7 +171,7 @@ const createSlug = (value: string | null | undefined): string => {
 
   const transliterated = value
     .split('')
-    .map(ch => (map[ch] !== undefined ? map[ch] : ch))
+    .map((ch) => (map[ch] !== undefined ? map[ch] : ch))
     .join('')
 
   return transliterated
@@ -211,8 +202,8 @@ const categoryForm = reactive<Partial<Category>>({
 
 const categoryImageFile = ref<File | null>(null)
 const categoryImageInputKey = ref(0)
-const categoryFileInputRef = ref<HTMLInputElement | null>(null)
-const categorySelectedFileName = ref<string>('')
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const selectedFileName = ref<string>('')
 
 const imageIsExternal = computed(() =>
   isExternalUrl(categoryForm.image_url || '')
@@ -221,7 +212,7 @@ const imageIsExternal = computed(() =>
 const resetCategoryImageInput = () => {
   categoryImageFile.value = null
   categoryImageInputKey.value++
-  categorySelectedFileName.value = ''
+  selectedFileName.value = ''
 }
 
 const loadCategories = async () => {
@@ -229,10 +220,12 @@ const loadCategories = async () => {
     .from('categories')
     .select('*')
     .order('sort', { ascending: true })
+
   if (error) {
-    console.error('loadCategories', error)
+    console.error('loadCategories error:', error)
     return
   }
+
   categories.value = data as Category[]
 }
 
@@ -257,7 +250,7 @@ const onCategoryImageChange = (e: Event) => {
   const target = e.target as HTMLInputElement
   const file = target.files?.[0] || null
   categoryImageFile.value = file
-  categorySelectedFileName.value = file ? file.name : 'Файл не вибрано'
+  selectedFileName.value = file ? file.name : ''
 }
 
 const saveCategory = async () => {
@@ -268,15 +261,13 @@ const saveCategory = async () => {
 
     let imageUrl = categoryForm.image_url || null
 
-    // Якщо обрано новий файл — заливаємо в Supabase (зовнішній URL)
     if (categoryImageFile.value && categoryForm.slug) {
       const uploadedUrl = await uploadImage('categories', categoryImageFile.value, categoryForm.slug)
       if (uploadedUrl) {
         imageUrl = uploadedUrl
       }
     } else if (!categoryForm.id && !imageUrl && categoryForm.slug) {
-      // нова категорія без власного URL → вважаємо, що є локальне зображення
-      // у /public/images/<slug>.jpg → в БД зберігаємо лише ім'я файлу
+      // для локального зображення зберігаємо лише ім'я файлу
       imageUrl = `${categoryForm.slug}.jpg`
     }
 
@@ -293,6 +284,7 @@ const saveCategory = async () => {
         .from('categories')
         .update(payload)
         .eq('id', categoryForm.id)
+
       if (error) throw error
     } else {
       const { data, error } = await supabase
@@ -300,6 +292,7 @@ const saveCategory = async () => {
         .insert(payload)
         .select()
         .single()
+
       if (error) throw error
       Object.assign(categoryForm, data)
     }
@@ -307,7 +300,7 @@ const saveCategory = async () => {
     await loadCategories()
     resetCategoryImageInput()
   } catch (e) {
-    console.error('saveCategory error', e)
+    console.error('saveCategory error:', e)
   }
 }
 
@@ -318,7 +311,25 @@ const deleteCategory = async () => {
   if (!confirmed) return
 
   try {
-    // якщо зображення зовнішнє — пробуємо видалити з Supabase Storage
+    // перевірка: чи є товари в цій категорії
+    const { data: relatedProducts, error: productsError } = await supabase
+      .from('products')
+      .select('id')
+      .eq('category_id', categoryForm.id)
+      .limit(1)
+
+    if (productsError) {
+      console.error('check related products error:', productsError)
+      alert('Не вдалося перевірити наявність товарів у категорії.')
+      return
+    }
+
+    if (relatedProducts && relatedProducts.length > 0) {
+      alert('Неможливо видалити категорію, оскільки вона містить товари.')
+      return
+    }
+
+    // якщо фото зовнішнє — видаляємо зі Storage
     if (categoryForm.image_url && isExternalUrl(categoryForm.image_url)) {
       await removeImageByPublicUrl(categoryForm.image_url)
     }
@@ -329,7 +340,7 @@ const deleteCategory = async () => {
       .eq('id', categoryForm.id)
 
     if (error) {
-      console.error('deleteCategory error', error)
+      console.error('deleteCategory error:', error)
       alert('Помилка при видаленні категорії: ' + error.message)
       return
     }
@@ -337,7 +348,7 @@ const deleteCategory = async () => {
     startNewCategory()
     await loadCategories()
   } catch (e) {
-    console.error('deleteCategory unexpected error', e)
+    console.error('deleteCategory unexpected error:', e)
   }
 }
 

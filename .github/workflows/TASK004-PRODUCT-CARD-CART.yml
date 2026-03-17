@@ -1,0 +1,320 @@
+name: TASK004-PRODUCT-CARD-CART
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  task004_product_card_cart:
+    name: "TASK004 - Product card component + cart counter"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Apply TASK004 file replacements
+        run: |
+          mkdir -p components
+          mkdir -p pages/categories
+          mkdir -p composables
+
+          cat << 'EOF' > composables/useCart.ts
+          export type CartItem = {
+            product_id: number
+            name: string
+            slug: string
+            price: number
+            weight_grams: number | null
+            image_url: string | null
+            qty: number
+          }
+
+          type CartState = {
+            items: CartItem[]
+          }
+
+          const STORAGE_KEY = 'bakery-2026-cart'
+
+          export const useCart = () => {
+            const cart = useState<CartState>('cart', () => ({ items: [] }))
+
+            const loadFromStorage = () => {
+              if (process.client) {
+                const raw = window.localStorage.getItem(STORAGE_KEY)
+                if (raw) {
+                  try {
+                    cart.value = JSON.parse(raw)
+                  } catch {
+                    cart.value = { items: [] }
+                  }
+                }
+              }
+            }
+
+            const persist = () => {
+              if (process.client) {
+                window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cart.value))
+              }
+            }
+
+            const addItem = (item: Omit<CartItem, 'qty'>, qty = 1) => {
+              const existing = cart.value.items.find((i) => i.product_id === item.product_id)
+              if (existing) {
+                existing.qty += qty
+              } else {
+                cart.value.items.push({ ...item, qty })
+              }
+              persist()
+            }
+
+            const removeItem = (productId: number) => {
+              cart.value.items = cart.value.items.filter((i) => i.product_id !== productId)
+              persist()
+            }
+
+            const updateQty = (productId: number, qty: number) => {
+              const item = cart.value.items.find((i) => i.product_id === productId)
+              if (!item) return
+              item.qty = Math.max(1, qty)
+              persist()
+            }
+
+            const clearCart = () => {
+              cart.value.items = []
+              persist()
+            }
+
+            const hasProduct = (productId: number) => {
+              return cart.value.items.some((i) => i.product_id === productId)
+            }
+
+            const total = computed(() =>
+              cart.value.items.reduce((sum, item) => sum + item.price * item.qty, 0)
+            )
+
+            const distinctItemsCount = computed(() => cart.value.items.length)
+
+            if (process.client && cart.value.items.length === 0) {
+              loadFromStorage()
+            }
+
+            return {
+              cart,
+              addItem,
+              removeItem,
+              updateQty,
+              clearCart,
+              hasProduct,
+              total,
+              distinctItemsCount
+            }
+          }
+          EOF
+
+          cat << 'EOF' > components/AppHeader.vue
+          <template>
+            <header class="border-b bg-white/80 backdrop-blur sticky top-0 z-20">
+              <div class="max-w-5xl mx-auto flex items-center justify-between px-4 py-3">
+                <NuxtLink
+                  to="/"
+                  class="flex items-center gap-2 font-semibold tracking-tight"
+                >
+                  <span
+                    class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-white text-sm font-bold"
+                  >
+                    B
+                  </span>
+                  <span>{{ siteName }}</span>
+                </NuxtLink>
+
+                <nav class="flex items-center gap-4 text-sm">
+                  <NuxtLink to="/categories" class="hover:text-amber-600">
+                    Категорії
+                  </NuxtLink>
+
+                  <NuxtLink to="/account" class="hover:text-amber-600">
+                    Обліковий запис
+                  </NuxtLink>
+
+                  <NuxtLink to="/cart" class="relative inline-flex items-center gap-1 hover:text-amber-600">
+                    <span>Кошик</span>
+                    <span
+                      v-if="distinctItemsCount > 0"
+                      class="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-medium text-white"
+                    >
+                      {{ distinctItemsCount }}
+                    </span>
+                  </NuxtLink>
+
+                  <NuxtLink
+                    v-if="isUserAdmin"
+                    to="/admin"
+                    class="inline-flex items-center rounded-full border border-amber-500 px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50"
+                  >
+                    Адмін
+                  </NuxtLink>
+                </nav>
+              </div>
+            </header>
+          </template>
+
+          <script setup lang="ts">
+          const config = useRuntimeConfig()
+          const siteName = config.public.siteName
+
+          const { loadUser, isUserAdmin } = useAuthUser()
+          const { distinctItemsCount } = useCart()
+
+          onMounted(async () => {
+            await loadUser()
+          })
+          </script>
+          EOF
+
+          cat << 'EOF' > components/ProductCard.vue
+          <template>
+            <div class="group rounded-2xl border bg-white p-4 shadow-sm hover:shadow-md transition">
+              <NuxtLink :to="`/product/${product.slug}`" class="block">
+                <div class="aspect-[4/3] w-full overflow-hidden rounded-xl bg-slate-100 mb-3">
+                  <img
+                    v-if="resolvedImageUrl"
+                    :src="resolvedImageUrl"
+                    :alt="product.name"
+                    class="h-full w-full object-cover group-hover:scale-105 transition"
+                  />
+                </div>
+
+                <div class="font-medium mb-1">{{ product.name }}</div>
+
+                <div class="text-sm text-slate-600 flex justify-between items-center mb-3">
+                  <span v-if="product.weight_grams">{{ product.weight_grams }} г</span>
+                  <span class="font-semibold text-amber-700">₴{{ Number(product.price).toFixed(2) }}</span>
+                </div>
+              </NuxtLink>
+
+              <button
+                type="button"
+                class="inline-flex w-full items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition"
+                :class="isInCart
+                  ? 'bg-slate-200 text-slate-700 cursor-default'
+                  : 'bg-amber-500 text-white hover:bg-amber-600'"
+                :disabled="isInCart"
+                @click="handleAddToCart"
+              >
+                {{ isInCart ? 'Вже в кошику' : 'В кошик' }}
+              </button>
+            </div>
+          </template>
+
+          <script setup lang="ts">
+          type ProductCardItem = {
+            id: number
+            category_id: number
+            name: string
+            slug: string
+            price: number
+            description: string | null
+            image_url: string | null
+            stock: number
+            weight_grams: number | null
+            is_active: boolean
+          }
+
+          const props = defineProps<{
+            product: ProductCardItem
+          }>()
+
+          const { addItem, hasProduct } = useCart()
+          const { isExternalUrl } = useStorageImages()
+
+          const isInCart = computed(() => hasProduct(props.product.id))
+
+          const resolvedImageUrl = computed(() => {
+            if (!props.product.image_url) return ''
+            if (isExternalUrl(props.product.image_url)) return props.product.image_url
+            return `/images/${props.product.image_url}`
+          })
+
+          const handleAddToCart = () => {
+            if (isInCart.value) return
+
+            addItem({
+              product_id: props.product.id,
+              name: props.product.name,
+              slug: props.product.slug,
+              price: props.product.price,
+              weight_grams: props.product.weight_grams,
+              image_url: props.product.image_url
+            })
+          }
+          </script>
+          EOF
+
+          cat << 'EOF' > pages/categories/[slug].vue
+          <template>
+            <div class="max-w-5xl mx-auto px-4 py-8 space-y-4">
+              <div v-if="pending" class="text-sm text-slate-500">Завантаження…</div>
+
+              <div v-else-if="!category" class="text-sm text-red-600">
+                Категорію не знайдено.
+              </div>
+
+              <div v-else>
+                <h1 class="text-2xl font-semibold mb-2">{{ category.name }}</h1>
+
+                <div v-if="products.length === 0" class="text-sm text-slate-500 mt-4">
+                  У цій категорії поки немає товарів.
+                </div>
+
+                <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-4">
+                  <ProductCard
+                    v-for="p in products"
+                    :key="p.id"
+                    :product="p"
+                  />
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <script setup lang="ts">
+          import type { Category, Product } from '~/composables/useCatalog'
+          import ProductCard from '~/components/ProductCard.vue'
+
+          const route = useRoute()
+          const { fetchProductsByCategorySlug } = useCatalog()
+
+          const category = ref<Category | null>(null)
+          const products = ref<Product[]>([])
+          const pending = ref(true)
+
+          onMounted(async () => {
+            try {
+              const slug = route.params.slug as string
+              const data = await fetchProductsByCategorySlug(slug)
+              category.value = data.category as Category | null
+              products.value = data.products as Product[]
+            } finally {
+              pending.value = false
+            }
+          })
+          </script>
+          EOF
+
+      - name: Commit and push TASK004 changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git add composables/useCart.ts components/AppHeader.vue components/ProductCard.vue pages/categories/[slug].vue
+            git commit -m "TASK004: product card component, cart button, header cart counter"
+            git push
+          else
+            echo "No changes to commit."
+          fi

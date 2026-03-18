@@ -1,68 +1,123 @@
 <template>
   <div class="max-w-4xl mx-auto px-4 py-8 space-y-6">
-    <h1 class="text-xl font-semibold">Оформлення замовлення</h1>
+    <h1 class="text-2xl font-semibold tracking-tight mb-4">Оформлення замовлення</h1>
 
-    <div v-if="cart.items.length === 0" class="text-sm text-slate-500">
-      Кошик порожній
+    <div v-if="!cart.items.length" class="text-sm text-slate-600">
+      Кошик порожній. Спочатку додайте товари.
     </div>
 
-    <div v-else class="space-y-6">
-      <!-- список товарів -->
-      <div class="space-y-3">
-        <div
-          v-for="item in cart.items"
-          :key="item.product_id"
-          class="flex items-center gap-4 border rounded-xl p-3"
-        >
-          <img
-            :src="getImage(item.image_url)"
-            class="w-16 h-16 object-cover rounded-lg border"
+    <div v-else class="grid gap-6 md:grid-cols-[2fr,1fr] items-start">
+      <form class="space-y-4" @submit.prevent="submit">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Телефон *</label>
+          <input
+            v-model="phone"
+            type="tel"
+            class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500"
+            required
           />
+        </div>
 
-          <div class="flex-1">
-            <div class="text-sm font-medium">{{ item.name }}</div>
-            <div class="text-xs text-slate-500">
-              {{ item.weight_grams }} г
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Пункт самовивозу</label>
+          <select
+            v-model="pickupLocationId"
+            class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500"
+          >
+            <option :value="null">Оберіть пункт</option>
+            <option
+              v-for="loc in pickupLocations"
+              :key="loc.id"
+              :value="loc.id"
+            >
+              {{ loc.name }} — {{ loc.address }}
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Коментар до замовлення</label>
+          <textarea
+            v-model="notes"
+            rows="3"
+            class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500"
+          />
+        </div>
+
+        <button
+          type="submit"
+          class="inline-flex items-center rounded-full bg-amber-500 px-5 py-2 text-sm font-medium text-white hover:bg-amber-600"
+        >
+          Підтвердити замовлення
+        </button>
+
+        <p v-if="error" class="text-sm text-red-600 mt-2">{{ error }}</p>
+        <p v-if="success" class="text-sm text-emerald-600 mt-2">Замовлення успішно створене.</p>
+      </form>
+
+      <div class="rounded-2xl border bg-white p-4 shadow-sm space-y-4 text-sm">
+        <div class="space-y-3">
+          <div
+            v-for="item in cart.items"
+            :key="item.product_id"
+            class="flex items-center gap-3"
+          >
+            <img
+              :src="getImage(item.image_url)"
+              :alt="item.name"
+              class="h-12 w-12 rounded-lg border object-cover bg-slate-100 shrink-0"
+            />
+
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-medium leading-tight">{{ item.name }}</div>
+              <div class="text-[11px] text-slate-500">
+                {{ item.qty }} × ₴{{ item.price.toFixed(2) }}
+                <span v-if="item.weight_grams"> · {{ item.weight_grams }} г</span>
+              </div>
             </div>
           </div>
+        </div>
 
-          <div class="text-sm">
-            {{ item.qty }} × ₴{{ item.price.toFixed(2) }}
+        <div class="border-t pt-3 space-y-2">
+          <div class="flex justify-between">
+            <span>Кількість позицій</span>
+            <span>{{ cart.items.length }}</span>
           </div>
 
-          <div class="text-sm font-semibold">
-            ₴{{ (item.price * item.qty).toFixed(2) }}
+          <div class="flex justify-between">
+            <span>Сума замовлення</span>
+            <span class="font-semibold text-amber-700">₴{{ total.toFixed(2) }}</span>
           </div>
         </div>
       </div>
-
-      <!-- підсумок -->
-      <div class="border-t pt-4 space-y-2">
-        <div class="flex justify-between text-sm">
-          <span>Кількість позицій:</span>
-          <span>{{ cart.items.length }}</span>
-        </div>
-
-        <div class="flex justify-between text-lg font-semibold">
-          <span>До оплати:</span>
-          <span>₴{{ total.toFixed(2) }}</span>
-        </div>
-      </div>
-
-      <!-- кнопка -->
-      <button
-        class="rounded-full bg-amber-500 text-white px-5 py-2 text-sm hover:bg-amber-600"
-        @click="submitOrder"
-      >
-        Підтвердити замовлення
-      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-const { cart, clearCart, total } = useCart()
+definePageMeta({
+  middleware: 'auth'
+})
+
+const { cart, total } = useCart()
+const { placeOrder } = useOrders()
 const { isExternalUrl } = useStorageImages()
+const nuxtApp = useNuxtApp()
+
+type PickupLocation = {
+  id: number
+  name: string
+  address: string
+  work_hours: string | null
+  is_active: boolean
+}
+
+const phone = ref('')
+const pickupLocationId = ref<number | null>(null)
+const notes = ref<string | null>(null)
+const pickupLocations = ref<PickupLocation[]>([])
+const error = ref<string | null>(null)
+const success = ref(false)
 
 const getImage = (url: string | null) => {
   if (!url) return ''
@@ -70,9 +125,33 @@ const getImage = (url: string | null) => {
   return '/images/' + url
 }
 
-const submitOrder = () => {
-  alert('Замовлення оформлено (demo)')
-  clearCart()
-  navigateTo('/')
+const loadPickupLocations = async () => {
+  const { data, error: err } = await nuxtApp.$supabase
+    .from('pickup_locations')
+    .select('*')
+    .eq('is_active', true)
+    .order('id', { ascending: true })
+
+  if (!err && data) {
+    pickupLocations.value = data as PickupLocation[]
+  }
 }
+
+const submit = async () => {
+  error.value = null
+  success.value = false
+
+  try {
+    await placeOrder({
+      phone: phone.value,
+      pickupLocationId: pickupLocationId.value,
+      notes: notes.value
+    })
+    success.value = true
+  } catch (e: any) {
+    error.value = e.message || 'Не вдалося створити замовлення.'
+  }
+}
+
+onMounted(loadPickupLocations)
 </script>

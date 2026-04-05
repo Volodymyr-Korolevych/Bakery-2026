@@ -98,6 +98,7 @@
       <div class="grid gap-8 md:grid-cols-2 items-start">
         <section class="space-y-4 rounded-2xl border bg-white p-4 shadow-sm text-sm">
           <h2 class="text-base font-semibold">Профіль</h2>
+
           <form class="space-y-3" @submit.prevent="saveProfile">
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Ім’я</label>
@@ -107,6 +108,7 @@
                 class="w-full rounded-xl border px-3 py-2 text-sm"
               />
             </div>
+
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Прізвище</label>
               <input
@@ -115,6 +117,7 @@
                 class="w-full rounded-xl border px-3 py-2 text-sm"
               />
             </div>
+
             <div>
               <label class="block text-xs font-medium text-slate-600 mb-1">Телефон</label>
               <input
@@ -132,7 +135,12 @@
               {{ profileError }}
             </p>
 
+            <p v-if="profileSuccess" class="text-sm text-emerald-600">
+              Обліковий запис оновлено
+            </p>
+
             <button
+              v-if="isProfileDirty"
               type="submit"
               class="inline-flex items-center rounded-full bg-amber-500 px-4 py-2 text-xs font-medium text-white hover:bg-amber-600"
             >
@@ -143,26 +151,75 @@
 
         <section class="space-y-3 rounded-2xl border bg-white p-4 shadow-sm text-sm">
           <h2 class="text-base font-semibold">Мої замовлення</h2>
+
           <div v-if="!orders.length" class="text-sm text-slate-600">
             Ви ще не робили замовлень.
           </div>
+
           <div v-else class="space-y-2">
             <div
               v-for="order in orders"
               :key="order.id"
-              class="flex items-center justify-between rounded-xl border px-3 py-2"
+              class="rounded-xl border"
             >
-              <div>
-                <div class="font-medium">Замовлення №{{ order.id }}</div>
-                <div class="text-xs text-slate-500">
-                  {{ new Date(order.created_at).toLocaleString() }}
+              <button
+                type="button"
+                class="w-full flex items-center justify-between px-3 py-3 text-left hover:bg-slate-50 rounded-xl"
+                @click="toggleOrder(order.id)"
+              >
+                <div>
+                  <div class="font-medium">Замовлення №{{ order.id }}</div>
+                  <div class="text-xs text-slate-500">
+                    {{ new Date(order.created_at).toLocaleString() }}
+                  </div>
                 </div>
-              </div>
-              <div class="text-right text-sm">
-                <div class="font-semibold text-amber-700">
-                  ₴{{ order.total.toFixed(2) }}
+
+                <div class="text-right text-sm">
+                  <div class="font-semibold text-amber-700">₴{{ order.total.toFixed(2) }}</div>
+                  <div class="text-xs text-slate-500">{{ order.phone }}</div>
                 </div>
-                <div class="text-xs text-slate-500">{{ order.phone }}</div>
+              </button>
+
+              <div
+                v-if="expandedOrderId === order.id"
+                class="border-t px-3 py-3 space-y-3"
+              >
+                <div v-if="orderDetailsLoading[order.id]" class="text-xs text-slate-500">
+                  Завантаження товарів…
+                </div>
+
+                <div v-else-if="(orderDetails[order.id]?.items || []).length === 0" class="text-xs text-slate-500">
+                  У цьому замовленні немає позицій.
+                </div>
+
+                <div v-else class="space-y-2">
+                  <div
+                    v-for="item in orderDetails[order.id]?.items || []"
+                    :key="item.id"
+                    class="flex items-center gap-3"
+                  >
+                    <img
+                      :src="getImage(item.product?.image_url)"
+                      :alt="item.product?.name || 'Товар'"
+                      class="h-12 w-12 rounded-lg border object-cover bg-slate-100 shrink-0"
+                    />
+
+                    <div class="min-w-0 flex-1">
+                      <div class="text-sm font-medium leading-tight">
+                        {{ item.product?.name || ('Товар #' + item.product_id) }}
+                      </div>
+                      <div class="text-[11px] text-slate-500">
+                        {{ item.qty }} × ₴{{ Number(item.price).toFixed(2) }}
+                        <span v-if="item.product?.weight_grams"> · {{ item.product.weight_grams }} г</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="border-t pt-2 flex justify-between text-sm">
+                  <span>Сума замовлення</span>
+                  <span class="font-semibold text-amber-700">₴{{ order.total.toFixed(2) }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -174,8 +231,9 @@
 
 <script setup lang="ts">
 const { user, profile, loadUser, signIn, signUp, signOut, updateProfile, isUserAdmin } = useAuthUser()
-const { fetchMyOrders } = useOrders()
-
+const { fetchMyOrders, fetchOrderWithItems } = useOrders()
+const { isExternalUrl } = useStorageImages()
+const nuxtApp = useNuxtApp()
 const router = useRouter()
 
 const orders = ref<any[]>([])
@@ -188,10 +246,20 @@ const firstName = ref('')
 const lastName = ref('')
 const authError = ref<string | null>(null)
 const profileError = ref<string | null>(null)
+const profileSuccess = ref(false)
+let successTimer: ReturnType<typeof setTimeout> | null = null
 
 const profileFirstName = ref('')
 const profileLastName = ref('')
 const profilePhone = ref('')
+
+const initialProfileFirstName = ref('')
+const initialProfileLastName = ref('')
+const initialProfilePhone = ref('')
+
+const expandedOrderId = ref<number | null>(null)
+const orderDetails = ref<Record<number, { items: any[] }>>({})
+const orderDetailsLoading = ref<Record<number, boolean>>({})
 
 const normalizePhone = (value: string) => {
   return value.replace(/[\s()-]/g, '')
@@ -203,14 +271,34 @@ const isValidPhone = (value: string) => {
   return /^\+?[0-9]{10,15}$/.test(normalized)
 }
 
+const isProfileDirty = computed(() => {
+  return (
+    profileFirstName.value !== initialProfileFirstName.value ||
+    profileLastName.value !== initialProfileLastName.value ||
+    profilePhone.value !== initialProfilePhone.value
+  )
+})
+
+const getImage = (url?: string | null) => {
+  if (!url) return ''
+  if (isExternalUrl(url)) return url
+  return '/images/' + url
+}
+
+const setProfileFormFromProfile = () => {
+  profileFirstName.value = profile.value?.first_name || ''
+  profileLastName.value = profile.value?.last_name || ''
+  profilePhone.value = profile.value?.phone || ''
+
+  initialProfileFirstName.value = profile.value?.first_name || ''
+  initialProfileLastName.value = profile.value?.last_name || ''
+  initialProfilePhone.value = profile.value?.phone || ''
+}
+
 const loadProfileAndOrders = async () => {
   if (!user.value) return
 
-  if (profile.value) {
-    profileFirstName.value = profile.value.first_name || ''
-    profileLastName.value = profile.value.last_name || ''
-    profilePhone.value = profile.value.phone || ''
-  }
+  setProfileFormFromProfile()
   orders.value = await fetchMyOrders()
 }
 
@@ -260,6 +348,7 @@ const register = async () => {
 
 const saveProfile = async () => {
   profileError.value = null
+  profileSuccess.value = false
 
   if (!profile.value) return
 
@@ -275,15 +364,71 @@ const saveProfile = async () => {
     phone: profilePhone.value.trim() ? normalizePhone(profilePhone.value) : '',
     created_at: profile.value.created_at
   })
-  await loadProfileAndOrders()
+
+  await loadUser()
+  setProfileFormFromProfile()
+
+  profileSuccess.value = true
+  if (successTimer) clearTimeout(successTimer)
+  successTimer = setTimeout(() => {
+    profileSuccess.value = false
+  }, 5000)
+}
+
+const toggleOrder = async (orderId: number) => {
+  if (expandedOrderId.value === orderId) {
+    expandedOrderId.value = null
+    return
+  }
+
+  expandedOrderId.value = orderId
+
+  if (orderDetails.value[orderId]) return
+
+  orderDetailsLoading.value[orderId] = true
+
+  try {
+    const result = await fetchOrderWithItems(orderId)
+    const rawItems = result.items || []
+
+    const productIds = [...new Set(rawItems.map((item: any) => item.product_id))]
+    let productsMap: Record<number, any> = {}
+
+    if (productIds.length) {
+      const { data: productsData, error: productsError } = await nuxtApp.$supabase
+        .from('products')
+        .select('id, name, image_url, weight_grams')
+        .in('id', productIds)
+
+      if (!productsError && productsData) {
+        productsMap = Object.fromEntries(
+          productsData.map((p: any) => [p.id, p])
+        )
+      }
+    }
+
+    orderDetails.value[orderId] = {
+      items: rawItems.map((item: any) => ({
+        ...item,
+        product: productsMap[item.product_id] || null
+      }))
+    }
+  } finally {
+    orderDetailsLoading.value[orderId] = false
+  }
 }
 
 const handleSignOut = async () => {
+  if (successTimer) clearTimeout(successTimer)
   await signOut()
   await router.push('/account')
 }
 
 onMounted(async () => {
   await initAuthed()
+})
+
+onBeforeUnmount(() => {
+  if (successTimer) clearTimeout(successTimer)
 })
 </script>

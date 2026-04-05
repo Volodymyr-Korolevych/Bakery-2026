@@ -120,9 +120,18 @@
               <input
                 v-model="profilePhone"
                 type="tel"
+                placeholder="+380XXXXXXXXX"
                 class="w-full rounded-xl border px-3 py-2 text-sm"
               />
+              <p class="text-[11px] text-slate-400 mt-1">
+                Дозволені цифри, пробіли, дужки, дефіси та початковий знак +.
+              </p>
             </div>
+
+            <p v-if="profileError" class="text-sm text-red-600">
+              {{ profileError }}
+            </p>
+
             <button
               type="submit"
               class="inline-flex items-center rounded-full bg-amber-500 px-4 py-2 text-xs font-medium text-white hover:bg-amber-600"
@@ -178,10 +187,21 @@ const regPassword = ref('')
 const firstName = ref('')
 const lastName = ref('')
 const authError = ref<string | null>(null)
+const profileError = ref<string | null>(null)
 
 const profileFirstName = ref('')
 const profileLastName = ref('')
 const profilePhone = ref('')
+
+const normalizePhone = (value: string) => {
+  return value.replace(/[\s()-]/g, '')
+}
+
+const isValidPhone = (value: string) => {
+  if (!value.trim()) return false
+  const normalized = normalizePhone(value)
+  return /^\+?[0-9]{10,15}$/.test(normalized)
+}
 
 const loadProfileAndOrders = async () => {
   if (!user.value) return
@@ -239,12 +259,20 @@ const register = async () => {
 }
 
 const saveProfile = async () => {
+  profileError.value = null
+
   if (!profile.value) return
+
+  if (profilePhone.value.trim() && !isValidPhone(profilePhone.value)) {
+    profileError.value = 'Введіть коректний номер телефону.'
+    return
+  }
+
   await updateProfile({
     id: profile.value.id,
     first_name: profileFirstName.value,
     last_name: profileLastName.value,
-    phone: profilePhone.value,
+    phone: profilePhone.value.trim() ? normalizePhone(profilePhone.value) : '',
     created_at: profile.value.created_at
   })
   await loadProfileAndOrders()

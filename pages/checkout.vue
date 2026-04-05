@@ -9,13 +9,13 @@
     <div v-else class="grid gap-6 md:grid-cols-[2fr,1fr] items-start">
       <form class="space-y-4" @submit.prevent="submit">
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Телефон *</label>
-          <input
-            v-model="phone"
-            type="tel"
-            class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500"
-            required
-          />
+          <label class="block text-xs font-medium text-slate-600 mb-1">Телефон</label>
+          <div class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm">
+            {{ profilePhoneDisplay || 'Номер телефону не вказано' }}
+          </div>
+          <p class="mt-1 text-[11px] text-slate-500">
+            Змінити номер телефону можна в обліковому записі.
+          </p>
         </div>
 
         <div>
@@ -44,9 +44,14 @@
           />
         </div>
 
+        <p v-if="phoneError" class="text-sm text-red-600">
+          {{ phoneError }}
+        </p>
+
         <button
           type="submit"
-          class="inline-flex items-center rounded-full bg-amber-500 px-5 py-2 text-sm font-medium text-white hover:bg-amber-600"
+          class="inline-flex items-center rounded-full bg-amber-500 px-5 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="!canSubmit"
         >
           Підтвердити замовлення
         </button>
@@ -102,6 +107,7 @@ definePageMeta({
 const { cart, total } = useCart()
 const { placeOrder } = useOrders()
 const { isExternalUrl } = useStorageImages()
+const { profile, loadUser } = useAuthUser()
 const nuxtApp = useNuxtApp()
 
 type PickupLocation = {
@@ -112,12 +118,28 @@ type PickupLocation = {
   is_active: boolean
 }
 
-const phone = ref('')
 const pickupLocationId = ref<number | null>(null)
 const notes = ref<string | null>(null)
 const pickupLocations = ref<PickupLocation[]>([])
 const error = ref<string | null>(null)
 const success = ref(false)
+const phoneError = ref<string | null>(null)
+
+const normalizePhone = (value: string) => {
+  return value.replace(/[\s()-]/g, '')
+}
+
+const isValidPhone = (value: string) => {
+  if (!value.trim()) return false
+  const normalized = normalizePhone(value)
+  return /^\+?[0-9]{10,15}$/.test(normalized)
+}
+
+const profilePhoneDisplay = computed(() => profile.value?.phone || '')
+
+const canSubmit = computed(() => {
+  return !!profile.value?.phone && isValidPhone(profile.value.phone)
+})
 
 const getImage = (url: string | null) => {
   if (!url) return ''
@@ -140,10 +162,23 @@ const loadPickupLocations = async () => {
 const submit = async () => {
   error.value = null
   success.value = false
+  phoneError.value = null
+
+  const phone = profile.value?.phone || ''
+
+  if (!phone) {
+    phoneError.value = 'Вкажіть номер телефону в обліковому записі.'
+    return
+  }
+
+  if (!isValidPhone(phone)) {
+    phoneError.value = 'Номер телефону в обліковому записі некоректний.'
+    return
+  }
 
   try {
     await placeOrder({
-      phone: phone.value,
+      phone: normalizePhone(phone),
       pickupLocationId: pickupLocationId.value,
       notes: notes.value
     })
@@ -153,5 +188,8 @@ const submit = async () => {
   }
 }
 
-onMounted(loadPickupLocations)
+onMounted(async () => {
+  await loadUser()
+  await loadPickupLocations()
+})
 </script>

@@ -66,31 +66,45 @@ export const useOrders = () => {
     return order as Order
   }
 
-  const fetchMyOrders = async () => {
-    const { data, error } = await nuxtApp.$supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (error) throw error
-    return data as Order[]
+const fetchMyOrders = async () => {
+  if (!user.value) return []
+
+  const { data, error } = await nuxtApp.$supabase
+    .from('orders')
+    .select('*')
+    .eq('user_id', user.value.id)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data as Order[]
+}
+
+const fetchOrderWithItems = async (orderId: number) => {
+  if (!user.value) {
+    return { order: null, items: [] }
   }
 
-  const fetchOrderWithItems = async (orderId: number) => {
-    const { data: order, error } = await nuxtApp.$supabase
-      .from('orders')
-      .select('*')
-      .eq('id', orderId)
-      .maybeSingle()
-    if (error) throw error
+  const { data: order, error } = await nuxtApp.$supabase
+    .from('orders')
+    .select('*')
+    .eq('id', orderId)
+    .eq('user_id', user.value.id)
+    .maybeSingle()
 
-    const { data: items, error: itemsError } = await nuxtApp.$supabase
-      .from('order_items')
-      .select('*')
-      .eq('order_id', orderId)
-    if (itemsError) throw itemsError
-
-    return { order: order as Order | null, items: items as OrderItem[] }
+  if (error) throw error
+  if (!order) {
+    return { order: null, items: [] }
   }
+
+  const { data: items, error: itemsError } = await nuxtApp.$supabase
+    .from('order_items')
+    .select('*')
+    .eq('order_id', orderId)
+
+  if (itemsError) throw itemsError
+
+  return { order: order as Order | null, items: items as OrderItem[] }
+}
 
   return {
     placeOrder,

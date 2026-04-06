@@ -59,6 +59,7 @@
         >
           <option value="new">Нове</option>
           <option value="processing">В обробці</option>
+          <option value="ready">Готове до видачі</option>
           <option value="done">Виконане</option>
           <option value="cancelled">Скасоване</option>
         </select>
@@ -124,6 +125,7 @@ const statusLabel = (status: string) => {
     new: 'Нове',
     processing: 'В обробці',
     done: 'Виконане',
+    ready: 'Готове до видачі',
     cancelled: 'Скасоване'
   }[status] || status
 }
@@ -133,6 +135,7 @@ const statusColor = (status: string) => {
     new: 'bg-blue-50 text-blue-700',
     processing: 'bg-amber-50 text-amber-700',
     done: 'bg-emerald-50 text-emerald-700',
+    ready: 'bg-green-50 text-green-700',
     cancelled: 'bg-red-50 text-red-700'
   }[status] || ''
 }

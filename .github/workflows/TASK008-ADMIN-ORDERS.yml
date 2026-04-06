@@ -1,0 +1,201 @@
+name: TASK008-ADMIN-ORDERS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  task008_admin_orders:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Replace admin/orders.vue
+        run: |
+          mkdir -p pages/admin
+
+          cat << 'EOF' > pages/admin/orders.vue
+          <template>
+            <div class="max-w-6xl mx-auto px-4 py-8 grid md:grid-cols-[2fr,1.5fr] gap-6">
+
+              <!-- LEFT -->
+              <div class="space-y-3">
+                <div
+                  v-for="order in orders"
+                  :key="order.id"
+                  @click="selectOrder(order)"
+                  class="border rounded-xl p-3 cursor-pointer hover:bg-slate-50"
+                >
+                  <div class="flex justify-between">
+                    <div>
+                      <div class="font-medium">№{{ order.id }}</div>
+                      <div class="text-xs text-slate-500">
+                        {{ formatDate(order.created_at) }}
+                      </div>
+                    </div>
+
+                    <div class="text-right">
+                      <div class="text-sm font-semibold text-amber-700">
+                        ₴{{ order.total.toFixed(2) }}
+                      </div>
+
+                      <div
+                        class="text-xs mt-1 px-2 py-0.5 rounded-full inline-block"
+                        :class="statusColor(order.status)"
+                      >
+                        {{ statusLabel(order.status) }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- RIGHT -->
+              <div v-if="selectedOrder" class="border rounded-xl p-4 space-y-4">
+                <div class="flex justify-between items-center">
+                  <div class="font-semibold">Замовлення №{{ selectedOrder.id }}</div>
+
+                  <select
+                    v-model="selectedStatus"
+                    @change="updateStatus"
+                    class="border rounded-lg px-2 py-1 text-sm"
+                  >
+                    <option value="new">Нове</option>
+                    <option value="processing">В обробці</option>
+                    <option value="done">Виконане</option>
+                    <option value="cancelled">Скасоване</option>
+                  </select>
+                </div>
+
+                <!-- ITEMS -->
+                <div class="space-y-3">
+                  <div
+                    v-for="item in orderItems"
+                    :key="item.id"
+                    class="flex items-center gap-3"
+                  >
+                    <img
+                      :src="getImage(item.product?.image_url)"
+                      class="w-14 h-14 object-cover rounded-lg border"
+                    />
+
+                    <div class="flex-1">
+                      <div class="text-sm font-medium">
+                        {{ item.product?.name }}
+                      </div>
+
+                      <div class="text-xs text-slate-500">
+                        {{ item.qty }} × ₴{{ item.price }}
+                      </div>
+                    </div>
+
+                    <div class="text-sm font-semibold">
+                      ₴{{ (item.qty * item.price).toFixed(2) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </template>
+
+          <script setup lang="ts">
+          const nuxtApp = useNuxtApp()
+          const { isExternalUrl } = useStorageImages()
+
+          const orders = ref([])
+          const selectedOrder = ref(null)
+          const orderItems = ref([])
+          const selectedStatus = ref('new')
+
+          const formatDate = (date: string) => {
+            const d = new Date(date)
+            return d.toLocaleDateString('uk-UA', {
+              day: 'numeric',
+              month: 'long'
+            })
+          }
+
+          const statusLabel = (status: string) => {
+            return {
+              new: 'Нове',
+              processing: 'В обробці',
+              done: 'Виконане',
+              cancelled: 'Скасоване'
+            }[status] || status
+          }
+
+          const statusColor = (status: string) => {
+            return {
+              new: 'bg-blue-50 text-blue-700',
+              processing: 'bg-amber-50 text-amber-700',
+              done: 'bg-emerald-50 text-emerald-700',
+              cancelled: 'bg-red-50 text-red-700'
+            }[status] || ''
+          }
+
+          const getImage = (url: string | null) => {
+            if (!url) return ''
+            if (isExternalUrl(url)) return url
+            return '/images/' + url
+          }
+
+          const loadOrders = async () => {
+            const { data } = await nuxtApp.$supabase
+              .from('orders')
+              .select('*')
+              .order('created_at', { ascending: false })
+
+            orders.value = data || []
+          }
+
+          const selectOrder = async (order) => {
+            selectedOrder.value = order
+            selectedStatus.value = order.status || 'new'
+
+            const { data: items } = await nuxtApp.$supabase
+              .from('order_items')
+              .select('*')
+              .eq('order_id', order.id)
+
+            const ids = items.map(i => i.product_id)
+
+            const { data: products } = await nuxtApp.$supabase
+              .from('products')
+              .select('*')
+              .in('id', ids)
+
+            const map = Object.fromEntries(products.map(p => [p.id, p]))
+
+            orderItems.value = items.map(i => ({
+              ...i,
+              product: map[i.product_id]
+            }))
+          }
+
+          const updateStatus = async () => {
+            if (!selectedOrder.value) return
+
+            await nuxtApp.$supabase
+              .from('orders')
+              .update({ status: selectedStatus.value })
+              .eq('id', selectedOrder.value.id)
+
+            selectedOrder.value.status = selectedStatus.value
+          }
+
+          onMounted(loadOrders)
+          </script>
+          EOF
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add pages/admin/orders.vue
+          git commit -m "TASK008: admin orders UI + status + images"
+          git push

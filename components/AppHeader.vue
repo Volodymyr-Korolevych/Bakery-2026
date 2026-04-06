@@ -18,8 +18,8 @@
           Категорії
         </NuxtLink>
 
-        <NuxtLink to="/account" class="hover:text-amber-600">
-          Обліковий запис
+        <NuxtLink v-if="!isUserAdmin"  to="/account" class="hover:text-amber-600">
+          Особистий кабінет
         </NuxtLink>
 
         <NuxtLink to="/cart" class="relative inline-flex items-center gap-1 hover:text-amber-600">

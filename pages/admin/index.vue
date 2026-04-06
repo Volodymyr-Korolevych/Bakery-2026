@@ -3,9 +3,18 @@
     <header class="space-y-2">
       <h1 class="text-2xl font-semibold tracking-tight">Адмін-панель</h1>
       <p class="text-sm text-slate-600">
-        Оберіть розділ для керування даними пекарні.
+        Оберіть розділ для керування даними пекарні
       </p>
     </header>
+    <div class="flex items-center justify-between">
+
+      <button 
+      class="inline-flex items-center rounded-full border border-amber-500 px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50"
+
+      @click="handleSignOut">
+        Вийти
+      </button>
+    </div>
 
     <div class="grid md:grid-cols-2 gap-4">
       <NuxtLink
@@ -67,4 +76,13 @@
 definePageMeta({
   middleware: 'admin'
 })
+const router = useRouter()
+const {  signOut } = useAuthUser()
+
+const handleSignOut = async () => {
+  +
+
+  await signOut()
+  await router.push('/account')
+}
 </script>

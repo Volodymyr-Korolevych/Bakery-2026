@@ -82,7 +82,7 @@
     <div v-else class="space-y-8">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-semibold tracking-tight">Обліковий запис</h1>
+          <h1 class="text-2xl font-semibold tracking-tight">Особистий кабінет</h1>
           <p class="text-sm text-slate-600">
             {{ profile?.first_name }} {{ profile?.last_name }} ({{ user.email }})
           </p>
@@ -170,7 +170,15 @@
                 <div>
                   <div class="font-medium">Замовлення №{{ order.id }}</div>
                   <div class="text-xs text-slate-500">
-                    {{ new Date(order.created_at).toLocaleString() }}
+                    {{ formatOrderDateTime(order.created_at) }}
+                  </div>
+                  <div class="mt-1">
+                    <span
+                      class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px]"
+                      :class="statusColor(order.status)"
+                    >
+                      {{ statusLabel(order.status) }}
+                    </span>
                   </div>
                 </div>
 
@@ -248,6 +256,7 @@ const authError = ref<string | null>(null)
 const profileError = ref<string | null>(null)
 const profileSuccess = ref(false)
 let successTimer: ReturnType<typeof setTimeout> | null = null
+let ordersPollingTimer: ReturnType<typeof setInterval> | null = null
 
 const profileFirstName = ref('')
 const profileLastName = ref('')
@@ -285,6 +294,43 @@ const getImage = (url?: string | null) => {
   return '/images/' + url
 }
 
+const statusLabel = (status?: string) => {
+  return {
+    new: 'Нове',
+    processing: 'В обробці',
+    ready: 'Готове до видачі',
+    done: 'Виконане',
+    cancelled: 'Скасоване'
+  }[status || 'new'] || 'Нове'
+}
+
+const statusColor = (status?: string) => {
+  return {
+    new: 'bg-blue-50 text-blue-700',
+    processing: 'bg-amber-50 text-amber-700',
+    ready: 'bg-violet-50 text-violet-700',
+    done: 'bg-emerald-50 text-emerald-700',
+    cancelled: 'bg-red-50 text-red-700'
+  }[status || 'new'] || 'bg-blue-50 text-blue-700'
+}
+
+const formatOrderDateTime = (value: string) => {
+  const d = new Date(value)
+
+  const datePart = d.toLocaleDateString('uk-UA', {
+    day: 'numeric',
+    month: 'long'
+  })
+
+  const timePart = d.toLocaleTimeString('uk-UA', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
+
+  return `${datePart}, ${timePart}`
+}
+
 const setProfileFormFromProfile = () => {
   profileFirstName.value = profile.value?.first_name || ''
   profileLastName.value = profile.value?.last_name || ''
@@ -295,11 +341,15 @@ const setProfileFormFromProfile = () => {
   initialProfilePhone.value = profile.value?.phone || ''
 }
 
+const loadOrdersOnly = async () => {
+  if (!user.value) return
+  orders.value = await fetchMyOrders()
+}
+
 const loadProfileAndOrders = async () => {
   if (!user.value) return
-
   setProfileFormFromProfile()
-  orders.value = await fetchMyOrders()
+  await loadOrdersOnly()
 }
 
 const initAuthed = async () => {
@@ -418,17 +468,35 @@ const toggleOrder = async (orderId: number) => {
   }
 }
 
+const startOrdersPolling = () => {
+  if (ordersPollingTimer) clearInterval(ordersPollingTimer)
+
+  ordersPollingTimer = setInterval(async () => {
+    if (!user.value) return
+
+    await loadOrdersOnly()
+
+    if (expandedOrderId.value) {
+      delete orderDetails.value[expandedOrderId.value]
+      await toggleOrder(expandedOrderId.value)
+    }
+  }, 10000)
+}
+
 const handleSignOut = async () => {
   if (successTimer) clearTimeout(successTimer)
+  if (ordersPollingTimer) clearInterval(ordersPollingTimer)
   await signOut()
   await router.push('/account')
 }
 
 onMounted(async () => {
   await initAuthed()
+  startOrdersPolling()
 })
 
 onBeforeUnmount(() => {
   if (successTimer) clearTimeout(successTimer)
+  if (ordersPollingTimer) clearInterval(ordersPollingTimer)
 })
 </script>

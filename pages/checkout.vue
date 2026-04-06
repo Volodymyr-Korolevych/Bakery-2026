@@ -57,7 +57,6 @@
         </button>
 
         <p v-if="error" class="text-sm text-red-600 mt-2">{{ error }}</p>
-        <p v-if="success" class="text-sm text-emerald-600 mt-2">Замовлення успішно створене.</p>
       </form>
 
       <div class="rounded-2xl border bg-white p-4 shadow-sm space-y-4 text-sm">
@@ -96,6 +95,22 @@
         </div>
       </div>
     </div>
+
+    <!-- SUCCESS POPUP -->
+    <div
+      v-if="showSuccessPopup"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+    >
+      <div class="max-w-lg w-full rounded-3xl bg-white p-8 shadow-2xl text-center space-y-4">
+        <div class="text-2xl font-semibold tracking-tight text-slate-900">
+          Ваше замовлення прийняте
+        </div>
+
+        <p class="text-base leading-7 text-slate-700">
+          Очікуйте підтвердження готовності замовлення в Особистому кабінеті
+        </p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -109,6 +124,7 @@ const { placeOrder } = useOrders()
 const { isExternalUrl } = useStorageImages()
 const { profile, loadUser } = useAuthUser()
 const nuxtApp = useNuxtApp()
+const router = useRouter()
 
 type PickupLocation = {
   id: number
@@ -122,8 +138,9 @@ const pickupLocationId = ref<number | null>(null)
 const notes = ref<string | null>(null)
 const pickupLocations = ref<PickupLocation[]>([])
 const error = ref<string | null>(null)
-const success = ref(false)
 const phoneError = ref<string | null>(null)
+const showSuccessPopup = ref(false)
+let redirectTimer: ReturnType<typeof setTimeout> | null = null
 
 const normalizePhone = (value: string) => {
   return value.replace(/[\s()-]/g, '')
@@ -161,7 +178,6 @@ const loadPickupLocations = async () => {
 
 const submit = async () => {
   error.value = null
-  success.value = false
   phoneError.value = null
 
   const phone = profile.value?.phone || ''
@@ -182,7 +198,14 @@ const submit = async () => {
       pickupLocationId: pickupLocationId.value,
       notes: notes.value
     })
-    success.value = true
+
+    showSuccessPopup.value = true
+
+    if (redirectTimer) clearTimeout(redirectTimer)
+    redirectTimer = setTimeout(async () => {
+      showSuccessPopup.value = false
+      await router.push('/')
+    }, 5000)
   } catch (e: any) {
     error.value = e.message || 'Не вдалося створити замовлення.'
   }
@@ -191,5 +214,9 @@ const submit = async () => {
 onMounted(async () => {
   await loadUser()
   await loadPickupLocations()
+})
+
+onBeforeUnmount(() => {
+  if (redirectTimer) clearTimeout(redirectTimer)
 })
 </script>

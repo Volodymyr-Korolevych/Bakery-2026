@@ -1,0 +1,212 @@
+name: TASK009-PRODUCT-PAGE-QUANTITY
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  task009_product_page_quantity:
+    name: "TASK009 - product page quantity + add to cart message"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Apply TASK009 file replacement
+        run: |
+          mkdir -p pages/product
+
+          cat << 'EOF' > pages/product/[slug].vue
+          <template>
+            <div class="max-w-5xl mx-auto px-4 py-8">
+              <div v-if="pending" class="text-sm text-slate-500">
+                Завантаження…
+              </div>
+
+              <div v-else-if="!product" class="text-sm text-red-600">
+                Товар не знайдено.
+              </div>
+
+              <div v-else class="grid gap-8 md:grid-cols-2 items-start">
+                <div class="rounded-2xl overflow-hidden border bg-white">
+                  <img
+                    :src="resolvedImageUrl"
+                    :alt="displayName"
+                    class="w-full aspect-[4/3] object-cover"
+                  />
+                </div>
+
+                <div class="space-y-4">
+                  <div>
+                    <h1 class="text-2xl font-semibold tracking-tight">
+                      {{ displayName }}
+                    </h1>
+                    <p v-if="product.weight_grams" class="text-sm text-slate-500 mt-1">
+                      {{ product.weight_grams }} г
+                    </p>
+                  </div>
+
+                  <div class="text-2xl font-semibold text-amber-700">
+                    ₴{{ Number(product.price).toFixed(2) }}
+                  </div>
+
+                  <p v-if="product.description" class="text-sm leading-6 text-slate-700">
+                    {{ product.description }}
+                  </p>
+
+                  <div class="flex items-center gap-3 pt-2">
+                    <span class="text-sm font-medium text-slate-700">Кількість:</span>
+
+                    <div class="flex items-center border rounded-full overflow-hidden">
+                      <button
+                        type="button"
+                        class="px-3 py-2 text-sm"
+                        @click="decreaseQty"
+                      >
+                        -
+                      </button>
+                      <span class="px-4 py-2 border-l border-r text-sm min-w-12 text-center">
+                        {{ qty }}
+                      </span>
+                      <button
+                        type="button"
+                        class="px-3 py-2 text-sm"
+                        @click="increaseQty"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="pt-2 space-y-2">
+                    <button
+                      type="button"
+                      class="inline-flex items-center rounded-full bg-amber-500 px-5 py-2 text-sm font-medium text-white hover:bg-amber-600"
+                      @click="handleAddToCart"
+                    >
+                      Додати в кошик
+                    </button>
+
+                    <p v-if="showAddedMessage" class="text-sm text-emerald-600">
+                      Товар додано в кошик
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <script setup lang="ts">
+          const route = useRoute()
+          const nuxtApp = useNuxtApp()
+          const { addItem } = useCart()
+          const { isExternalUrl } = useStorageImages()
+
+          type Product = {
+            id: number
+            category_id: number
+            name: string
+            slug: string
+            price: number
+            description: string | null
+            image_url: string | null
+            stock: number | null
+            weight_grams: number | null
+            is_active: boolean
+          }
+
+          const product = ref<Product | null>(null)
+          const pending = ref(true)
+          const qty = ref(1)
+          const showAddedMessage = ref(false)
+          let addedTimer: ReturnType<typeof setTimeout> | null = null
+
+          const capitalizeFirst = (value: string | null | undefined) => {
+            if (!value) return ''
+            return value.charAt(0).toUpperCase() + value.slice(1)
+          }
+
+          const displayName = computed(() => capitalizeFirst(product.value?.name))
+
+          const resolvedImageUrl = computed(() => {
+            if (!product.value?.image_url) return ''
+            if (isExternalUrl(product.value.image_url)) return product.value.image_url
+            return '/images/' + product.value.image_url
+          })
+
+          const loadProduct = async () => {
+            pending.value = true
+            const slug = route.params.slug as string
+
+            const { data, error } = await nuxtApp.$supabase
+              .from('products')
+              .select('*')
+              .eq('slug', slug)
+              .eq('is_active', true)
+              .maybeSingle()
+
+            if (!error && data) {
+              product.value = data as Product
+            } else {
+              product.value = null
+            }
+
+            pending.value = false
+          }
+
+          const increaseQty = () => {
+            qty.value += 1
+          }
+
+          const decreaseQty = () => {
+            qty.value = Math.max(1, qty.value - 1)
+          }
+
+          const handleAddToCart = () => {
+            if (!product.value) return
+
+            addItem(
+              {
+                product_id: product.value.id,
+                name: product.value.name,
+                slug: product.value.slug,
+                price: product.value.price,
+                weight_grams: product.value.weight_grams,
+                image_url: product.value.image_url
+              },
+              qty.value
+            )
+
+            showAddedMessage.value = true
+
+            if (addedTimer) clearTimeout(addedTimer)
+            addedTimer = setTimeout(() => {
+              showAddedMessage.value = false
+            }, 5000)
+          }
+
+          onMounted(loadProduct)
+
+          onBeforeUnmount(() => {
+            if (addedTimer) clearTimeout(addedTimer)
+          })
+          </script>
+          EOF
+
+      - name: Commit and push TASK009 changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git add pages/product/[slug].vue
+            git commit -m "TASK009: product page quantity selector and add-to-cart message"
+            git push
+          else
+            echo "No changes to commit."
+          fi

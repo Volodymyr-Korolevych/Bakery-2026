@@ -7,23 +7,37 @@
         v-for="order in orders"
         :key="order.id"
         @click="selectOrder(order)"
-        class="border rounded-xl p-3 cursor-pointer hover:bg-slate-50"
+        class="rounded-2xl border p-4 cursor-pointer transition-all"
+        :class="selectedOrder?.id === order.id
+          ? 'border-amber-500 bg-amber-50 shadow-sm ring-1 ring-amber-200'
+          : 'border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300'"
       >
-        <div class="flex justify-between">
-          <div>
-            <div class="font-medium">№{{ order.id }}</div>
+        <div class="flex justify-between gap-3">
+          <div class="min-w-0 space-y-1">
+            <div class="font-semibold text-slate-900">№{{ order.id }}</div>
+
             <div class="text-xs text-slate-500">
               {{ formatDate(order.created_at) }}
             </div>
+
+            <div class="text-xs text-slate-600 mt-1">
+              <span class="font-medium text-slate-700">Телефон:</span>
+              {{ order.phone || '—' }}
+            </div>
+
+            <div class="text-xs text-slate-600">
+              <span class="font-medium text-slate-700">Пекарня:</span>
+              {{ pickupNameById(order.pickup_location_id) }}
+            </div>
           </div>
 
-          <div class="text-right">
+          <div class="text-right shrink-0 flex flex-col items-end gap-2">
             <div class="text-sm font-semibold text-amber-700">
-              ₴{{ order.total.toFixed(2) }}
+              ₴{{ Number(order.total).toFixed(2) }}
             </div>
 
             <div
-              class="text-xs mt-1 px-2 py-0.5 rounded-full inline-block"
+              class="text-xs px-2 py-0.5 rounded-full inline-block"
               :class="statusColor(order.status)"
             >
               {{ statusLabel(order.status) }}
@@ -91,6 +105,12 @@ const selectedOrder = ref(null)
 const orderItems = ref([])
 const selectedStatus = ref('new')
 
+type PickupLocation = {
+  id: number
+  name: string
+}
+const pickupLocations = ref<PickupLocation[]>([])
+
 const formatDate = (date: string) => {
   const d = new Date(date)
   return d.toLocaleDateString('uk-UA', {
@@ -115,6 +135,25 @@ const statusColor = (status: string) => {
     done: 'bg-emerald-50 text-emerald-700',
     cancelled: 'bg-red-50 text-red-700'
   }[status] || ''
+}
+
+const loadPickupLocations = async () => {
+  const { data, error } = await nuxtApp.$supabase
+    .from('pickup_locations')
+    .select('id, name')
+
+  if (error) {
+    console.error('loadPickupLocations', error)
+    return
+  }
+
+  pickupLocations.value = data as PickupLocation[]
+}
+
+const pickupNameById = (id: number | null | undefined) => {
+  if (!id) return '—'
+  const loc = pickupLocations.value.find(l => l.id === id)
+  return loc ? loc.name : '—'
 }
 
 const getImage = (url: string | null) => {
@@ -167,5 +206,8 @@ const updateStatus = async () => {
   selectedOrder.value.status = selectedStatus.value
 }
 
-onMounted(loadOrders)
+onMounted(
+  loadOrders(),
+  loadPickupLocations()
+)
 </script>

@@ -286,6 +286,7 @@ const saveCategory = async () => {
         .eq('id', categoryForm.id)
 
       if (error) throw error
+      categoryForm.image_url = imageUrl
     } else {
       const { data, error } = await supabase
         .from('categories')

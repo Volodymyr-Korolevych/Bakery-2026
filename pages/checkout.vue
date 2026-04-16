@@ -33,6 +33,10 @@
               {{ loc.name }} — {{ loc.address }}
             </option>
           </select>
+
+          <p v-if="pickupError" class="mt-1 text-sm text-red-600">
+            {{ pickupError }}
+          </p>
         </div>
 
         <div>
@@ -139,6 +143,7 @@ const notes = ref<string | null>(null)
 const pickupLocations = ref<PickupLocation[]>([])
 const error = ref<string | null>(null)
 const phoneError = ref<string | null>(null)
+const pickupError = ref<string | null>(null)
 const showSuccessPopup = ref(false)
 let redirectTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -155,7 +160,7 @@ const isValidPhone = (value: string) => {
 const profilePhoneDisplay = computed(() => profile.value?.phone || '')
 
 const canSubmit = computed(() => {
-  return !!profile.value?.phone && isValidPhone(profile.value.phone)
+  return !!profile.value?.phone && isValidPhone(profile.value.phone) && pickupLocationId.value !== null
 })
 
 const getImage = (url: string | null) => {
@@ -179,6 +184,7 @@ const loadPickupLocations = async () => {
 const submit = async () => {
   error.value = null
   phoneError.value = null
+  pickupError.value = null
 
   const phone = profile.value?.phone || ''
 
@@ -189,6 +195,11 @@ const submit = async () => {
 
   if (!isValidPhone(phone)) {
     phoneError.value = 'Номер телефону в обліковому записі некоректний.'
+    return
+  }
+
+  if (pickupLocationId.value === null) {
+    pickupError.value = 'Оберіть пункт самовивозу.'
     return
   }
 

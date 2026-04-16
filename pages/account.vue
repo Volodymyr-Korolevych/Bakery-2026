@@ -346,6 +346,40 @@ const loadOrdersOnly = async () => {
   orders.value = await fetchMyOrders()
 }
 
+const loadOrderDetails = async (orderId: number) => {
+  orderDetailsLoading.value[orderId] = true
+
+  try {
+    const result = await fetchOrderWithItems(orderId)
+    const rawItems = result.items || []
+
+    const productIds = [...new Set(rawItems.map((item: any) => item.product_id))]
+    let productsMap: Record<number, any> = {}
+
+    if (productIds.length) {
+      const { data: productsData, error: productsError } = await nuxtApp.$supabase
+        .from('products')
+        .select('id, name, image_url, weight_grams')
+        .in('id', productIds)
+
+      if (!productsError && productsData) {
+        productsMap = Object.fromEntries(
+          productsData.map((p: any) => [p.id, p])
+        )
+      }
+    }
+
+    orderDetails.value[orderId] = {
+      items: rawItems.map((item: any) => ({
+        ...item,
+        product: productsMap[item.product_id] || null
+      }))
+    }
+  } finally {
+    orderDetailsLoading.value[orderId] = false
+  }
+}
+
 const loadProfileAndOrders = async () => {
   if (!user.value) return
   setProfileFormFromProfile()
@@ -433,38 +467,8 @@ const toggleOrder = async (orderId: number) => {
 
   expandedOrderId.value = orderId
 
-  if (orderDetails.value[orderId]) return
-
-  orderDetailsLoading.value[orderId] = true
-
-  try {
-    const result = await fetchOrderWithItems(orderId)
-    const rawItems = result.items || []
-
-    const productIds = [...new Set(rawItems.map((item: any) => item.product_id))]
-    let productsMap: Record<number, any> = {}
-
-    if (productIds.length) {
-      const { data: productsData, error: productsError } = await nuxtApp.$supabase
-        .from('products')
-        .select('id, name, image_url, weight_grams')
-        .in('id', productIds)
-
-      if (!productsError && productsData) {
-        productsMap = Object.fromEntries(
-          productsData.map((p: any) => [p.id, p])
-        )
-      }
-    }
-
-    orderDetails.value[orderId] = {
-      items: rawItems.map((item: any) => ({
-        ...item,
-        product: productsMap[item.product_id] || null
-      }))
-    }
-  } finally {
-    orderDetailsLoading.value[orderId] = false
+  if (!orderDetails.value[orderId]) {
+    await loadOrderDetails(orderId)
   }
 }
 
@@ -474,11 +478,13 @@ const startOrdersPolling = () => {
   ordersPollingTimer = setInterval(async () => {
     if (!user.value) return
 
+    const openedOrderId = expandedOrderId.value
+
     await loadOrdersOnly()
 
-    if (expandedOrderId.value) {
-      delete orderDetails.value[expandedOrderId.value]
-      await toggleOrder(expandedOrderId.value)
+    if (openedOrderId) {
+      await loadOrderDetails(openedOrderId)
+      expandedOrderId.value = openedOrderId
     }
   }, 10000)
 }

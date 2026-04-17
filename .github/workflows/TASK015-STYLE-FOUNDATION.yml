@@ -1,0 +1,265 @@
+name: TASK015-STYLE-FOUNDATION
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  task015_style_foundation:
+    name: "TASK015 - colors, layout, header, footer, home, category cards"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Apply TASK015 file replacements
+        run: |
+          mkdir -p layouts components pages
+
+          cat << 'EOF' > tailwind.config.cjs
+          /** @type {import('tailwindcss').Config} */
+          module.exports = {
+            content: [
+              "./app.vue",
+              "./components/**/*.{vue,js,ts}",
+              "./layouts/**/*.{vue,js,ts}",
+              "./pages/**/*.{vue,js,ts}",
+              "./plugins/**/*.{js,ts}",
+              "./nuxt.config.{js,ts}"
+            ],
+            theme: {
+              extend: {
+                colors: {
+                  bg: '#f5f7fa',
+                  card: '#ffffff',
+                  primary: '#f59e0b',
+                  primaryHover: '#d97706',
+                  textMain: '#111827',
+                  textSecondary: '#6b7280',
+                  border: '#e5e7eb'
+                }
+              }
+            },
+            plugins: []
+          }
+          EOF
+
+          cat << 'EOF' > layouts/default.vue
+          <template>
+            <div class="min-h-screen flex flex-col bg-bg text-textMain">
+              <AppHeader />
+
+              <main class="flex-1">
+                <slot />
+              </main>
+
+              <AppFooter />
+            </div>
+          </template>
+
+          <script setup lang="ts">
+          import AppHeader from '~/components/AppHeader.vue'
+          import AppFooter from '~/components/AppFooter.vue'
+          </script>
+          EOF
+
+          cat << 'EOF' > components/AppHeader.vue
+          <template>
+            <header class="sticky top-0 z-20 border-b border-border bg-card/90 backdrop-blur">
+              <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+                <NuxtLink
+                  to="/"
+                  class="flex items-center gap-3 font-semibold tracking-tight text-textMain"
+                >
+                  <span
+                    class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-white text-sm font-bold shadow-sm"
+                  >
+                    B
+                  </span>
+                  <span class="text-lg">{{ siteName }}</span>
+                </NuxtLink>
+
+                <nav class="flex items-center gap-6 text-sm">
+                  <NuxtLink to="/categories" class="text-textSecondary hover:text-textMain transition">
+                    Категорії
+                  </NuxtLink>
+
+                  <NuxtLink v-if="!isUserAdmin" to="/account" class="text-textSecondary hover:text-textMain transition">
+                    Особистий кабінет
+                  </NuxtLink>
+
+                  <NuxtLink to="/cart" class="relative inline-flex items-center gap-2 text-textSecondary hover:text-textMain transition">
+                    <span>Кошик</span>
+                    <span
+                      v-if="distinctItemsCount > 0"
+                      class="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-medium text-white"
+                    >
+                      {{ distinctItemsCount }}
+                    </span>
+                  </NuxtLink>
+
+                  <NuxtLink
+                    v-if="isUserAdmin"
+                    to="/admin"
+                    class="border border-border text-textMain px-5 py-2.5 rounded-lg hover:bg-gray-100 transition text-sm"
+                  >
+                    Адмін
+                  </NuxtLink>
+                </nav>
+              </div>
+            </header>
+          </template>
+
+          <script setup lang="ts">
+          const config = useRuntimeConfig()
+          const siteName = config.public.siteName
+
+          const { loadUser, isUserAdmin } = useAuthUser()
+          const { distinctItemsCount } = useCart()
+
+          onMounted(async () => {
+            await loadUser()
+          })
+          </script>
+          EOF
+
+          cat << 'EOF' > components/AppFooter.vue
+          <template>
+            <footer class="border-t border-border bg-card">
+              <div class="max-w-6xl mx-auto px-6 py-6 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <span class="text-sm text-textSecondary">© {{ year }} {{ siteName }}</span>
+                <span class="text-sm text-textSecondary">Дипломний проєкт Bakery-2026</span>
+              </div>
+            </footer>
+          </template>
+
+          <script setup lang="ts">
+          const config = useRuntimeConfig()
+          const siteName = config.public.siteName
+          const year = new Date().getFullYear()
+          </script>
+          EOF
+
+          cat << 'EOF' > pages/index.vue
+          <template>
+            <div class="max-w-6xl mx-auto px-6 py-10 space-y-10">
+              <section class="grid gap-6 md:grid-cols-2 items-center">
+                <div class="space-y-6">
+                  <div class="space-y-4">
+                    <h1 class="text-3xl md:text-4xl font-bold text-textMain">
+                      Свіжа випічка щодня
+                    </h1>
+                    <p class="text-base text-textSecondary max-w-xl">
+                      Онлайн-замовлення продукції пекарні з самовивозом. Оберіть улюблену випічку та заберіть її у зручний час.
+                    </p>
+                  </div>
+
+                  <div class="flex flex-wrap gap-4">
+                    <NuxtLink
+                      to="/categories"
+                      class="bg-primary hover:bg-primaryHover text-white font-medium px-5 py-2.5 rounded-lg transition"
+                    >
+                      Перейти до каталогу
+                    </NuxtLink>
+
+                    <NuxtLink
+                      to="/about"
+                      class="border border-border text-textMain px-5 py-2.5 rounded-lg hover:bg-gray-100 transition"
+                    >
+                      Про пекарню
+                    </NuxtLink>
+                  </div>
+                </div>
+
+                <div class="bg-card rounded-xl shadow-sm border border-border p-6">
+                  <p class="text-xl font-semibold mb-3 text-textMain">Пекарня «Зерно»</p>
+                  <p class="text-base text-textSecondary">
+                    Невелика пекарня зі свіжою випічкою, простим замовленням і самовивозом у зручній точці.
+                  </p>
+                </div>
+              </section>
+
+              <section class="space-y-4">
+                <h2 class="text-xl font-semibold text-textMain">Категорії</h2>
+                <CategoriesGrid />
+              </section>
+            </div>
+          </template>
+
+          <script setup lang="ts">
+          const CategoriesGrid = defineAsyncComponent(() => import('~/components/CategoriesGrid.vue'))
+          </script>
+          EOF
+
+          cat << 'EOF' > components/CategoriesGrid.vue
+          <template>
+            <div>
+              <div v-if="pending" class="text-sm text-textSecondary">Завантаження категорій…</div>
+              <div v-else-if="error" class="text-sm text-red-600">Помилка завантаження категорій.</div>
+
+              <div v-else class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <NuxtLink
+                  v-for="cat in categories"
+                  :key="cat.id"
+                  :to="`/categories/${cat.slug}`"
+                  class="bg-card rounded-xl shadow-sm border border-border p-4 hover:shadow-md transition group"
+                >
+                  <div class="aspect-[4/3] w-full overflow-hidden rounded-xl bg-slate-100 mb-4">
+                    <img
+                      v-if="cat.image_url"
+                      :src="imageUrl(cat.image_url)"
+                      :alt="cat.name"
+                      class="h-full w-full object-cover group-hover:scale-105 transition"
+                    />
+                  </div>
+
+                  <div class="text-base font-semibold text-textMain">
+                    {{ cat.name }}
+                  </div>
+                </NuxtLink>
+              </div>
+            </div>
+          </template>
+
+          <script setup lang="ts">
+          import type { Category } from '~/composables/useCatalog'
+          const { isExternalUrl } = useStorageImages()
+
+          const { fetchCategories } = useCatalog()
+          const categories = ref<Category[]>([])
+          const pending = ref(true)
+          const error = ref<Error | null>(null)
+
+          const imageUrl = (path: string) => {
+            return isExternalUrl(path) ? path : `/images/${path}`
+          }
+
+          onMounted(async () => {
+            try {
+              categories.value = await fetchCategories()
+            } catch (e: any) {
+              error.value = e
+            } finally {
+              pending.value = false
+            }
+          })
+          </script>
+          EOF
+
+      - name: Commit and push changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git add tailwind.config.cjs layouts/default.vue components/AppHeader.vue components/AppFooter.vue pages/index.vue components/CategoriesGrid.vue
+            git commit -m "TASK015: add style foundation for home, header, footer and category cards"
+            git push
+          else
+            echo "No changes to commit."
+          fi

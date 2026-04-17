@@ -1,13 +1,13 @@
 <template>
-    <div class="min-h-screen flex flex-col bg-slate-50 text-slate-900">
-        <AppHeader />
+  <div class="min-h-screen flex flex-col bg-bg text-textMain">
+    <AppHeader />
 
-        <main class="flex-1">
-            <slot />
-        </main>
+    <main class="flex-1">
+      <slot />
+    </main>
 
-        <AppFooter />
-    </div>
+    <AppFooter />
+  </div>
 </template>
 
 <script setup lang="ts">

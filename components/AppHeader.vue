@@ -1,32 +1,32 @@
 <template>
-  <header class="border-b bg-white/80 backdrop-blur sticky top-0 z-20">
-    <div class="max-w-5xl mx-auto flex items-center justify-between px-4 py-3">
+  <header class="sticky top-0 z-20 border-b border-border bg-card/90 backdrop-blur">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
       <NuxtLink
         to="/"
-        class="flex items-center gap-2 font-semibold tracking-tight"
+        class="flex items-center gap-3 font-semibold tracking-tight text-textMain"
       >
         <span
-          class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-white text-sm font-bold"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-white text-sm font-bold shadow-sm"
         >
           B
         </span>
-        <span>{{ siteName }}</span>
+        <span class="text-lg">{{ siteName }}</span>
       </NuxtLink>
 
-      <nav class="flex items-center gap-4 text-sm">
-        <NuxtLink to="/categories" class="hover:text-amber-600">
+      <nav class="flex items-center gap-6 text-sm">
+        <NuxtLink to="/categories" class="text-textSecondary hover:text-textMain transition">
           Категорії
         </NuxtLink>
 
-        <NuxtLink v-if="!isUserAdmin"  to="/account" class="hover:text-amber-600">
+        <NuxtLink v-if="!isUserAdmin" to="/account" class="text-textSecondary hover:text-textMain transition">
           Особистий кабінет
         </NuxtLink>
 
-        <NuxtLink to="/cart" class="relative inline-flex items-center gap-1 hover:text-amber-600">
+        <NuxtLink to="/cart" class="relative inline-flex items-center gap-2 text-textSecondary hover:text-textMain transition">
           <span>Кошик</span>
           <span
             v-if="distinctItemsCount > 0"
-            class="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-medium text-white"
+            class="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-medium text-white"
           >
             {{ distinctItemsCount }}
           </span>
@@ -35,7 +35,7 @@
         <NuxtLink
           v-if="isUserAdmin"
           to="/admin"
-          class="inline-flex items-center rounded-full border border-amber-500 px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50"
+          class="border border-border text-textMain px-5 py-2.5 rounded-lg hover:bg-gray-100 transition text-sm"
         >
           Адмін
         </NuxtLink>

@@ -1,36 +1,43 @@
 <template>
-  <div class="max-w-5xl mx-auto px-4 py-8 space-y-10">
+  <div class="max-w-6xl mx-auto px-6 py-10 space-y-10">
     <section class="grid gap-6 md:grid-cols-2 items-center">
-      <div class="space-y-4">
-        <h1 class="text-3xl md:text-4xl font-semibold tracking-tight">
-          Свіжа випічка щодня
-        </h1>
-        <p class="text-slate-600">
-          Онлайн-замовлення продукції пекарні з самовивозом. Оберіть улюблений хліб, булочки та десерти — заберіть у зручний час.
-        </p>
-        <div class="flex gap-3">
+      <div class="space-y-6">
+        <div class="space-y-4">
+          <h1 class="text-3xl md:text-4xl font-bold text-textMain">
+            Свіжа випічка щодня
+          </h1>
+          <p class="text-base text-textSecondary max-w-xl">
+            Онлайн-замовлення продукції пекарні з самовивозом. Оберіть улюблену випічку та заберіть її у зручний час.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap gap-4">
           <NuxtLink
             to="/categories"
-            class="inline-flex items-center rounded-full bg-amber-500 px-5 py-2 text-sm font-medium text-white hover:bg-amber-600"
+            class="bg-primary hover:bg-primaryHover text-white font-medium px-5 py-2.5 rounded-lg transition"
           >
             Перейти до каталогу
           </NuxtLink>
+
           <NuxtLink
             to="/about"
-            class="inline-flex items-center rounded-full border border-slate-300 px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            class="border border-border text-textMain px-5 py-2.5 rounded-lg hover:bg-gray-100 transition"
           >
             Про пекарню
           </NuxtLink>
         </div>
       </div>
-      <div class="rounded-3xl border bg-white shadow-sm p-6 text-sm text-slate-600">
-        <p class="font-medium mb-2">Дипломний проєкт Bakery-2026</p>
-        <p>Це демонстраційний веб-застосунок для замовлення продукції пекарні з самовивозом. Реалізовано на Nuxt 3, Supabase та Tailwind CSS.</p>
+
+      <div class="bg-card rounded-xl shadow-sm border border-border p-6">
+        <p class="text-xl font-semibold mb-3 text-textMain">Пекарня «Зерно»</p>
+        <p class="text-base text-textSecondary">
+          Невелика пекарня зі свіжою випічкою, простим замовленням і самовивозом у зручній точці.
+        </p>
       </div>
     </section>
 
-    <section>
-      <h2 class="text-xl font-semibold mb-4">Категорії</h2>
+    <section class="space-y-4">
+      <h2 class="text-xl font-semibold text-textMain">Категорії</h2>
       <CategoriesGrid />
     </section>
   </div>

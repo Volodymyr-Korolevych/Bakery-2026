@@ -1,5 +1,9 @@
 // Nuxt 3 config for Bakery-2026
 export default defineNuxtConfig({
+    devtools: { enabled: false },
+  experimental: {
+    appManifest: false
+  },
   modules: ['@nuxtjs/tailwindcss'],
 
   css: ['@/assets/css/tailwind.css'],

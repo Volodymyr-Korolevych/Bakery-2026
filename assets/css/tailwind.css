@@ -1,3 +1,41 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 🟠 Глобальна типографіка */
+@layer base {
+    h1 {
+        @apply text-3xl font-bold mb-4 text-textMain;
+    }
+
+    h2 {
+        @apply text-xl font-semibold mb-3 text-textMain;
+    }
+
+    p {
+        @apply text-base text-textSecondary;
+    }
+}
+
+/* 🟠 Компоненти */
+@layer components {
+    .card {
+        @apply bg-card rounded-xl shadow-sm border border-border p-4;
+    }
+
+    .card-hover {
+        @apply bg-card rounded-xl shadow-sm border border-border p-4 hover:shadow-md transition;
+    }
+
+    .btn-primary {
+        @apply bg-primary hover:bg-primaryHover text-white font-medium px-5 py-2.5 rounded-lg transition;
+    }
+
+    .btn-secondary {
+        @apply border border-border text-textMain px-5 py-2.5 rounded-lg hover:bg-gray-100 transition;
+    }
+
+    .input {
+        @apply w-full h-11 px-4 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition;
+    }
+}

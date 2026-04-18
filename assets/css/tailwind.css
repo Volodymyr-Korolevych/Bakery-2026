@@ -12,7 +12,7 @@
         @apply text-xl font-semibold mb-3 text-textMain;
     }
 
-    p {
+    p-p {
         @apply text-base text-textSecondary;
     }
 }

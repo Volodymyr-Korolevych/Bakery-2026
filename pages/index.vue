@@ -6,9 +6,11 @@
           <h1 class="text-3xl md:text-4xl font-bold text-textMain">
             Свіжа випічка щодня
           </h1>
-          <p class="text-base text-textSecondary max-w-xl">
-            Онлайн-замовлення продукції пекарні з самовивозом. Оберіть улюблену випічку та заберіть її у зручний час.
-          </p>
+          <div class="bg-white/70 backdrop-blur rounded-2xl p-6 shadow-sm border border-border">
+            <p class="text-base text-textSecondary max-w-xl">
+              Онлайн-замовлення продукції пекарні з самовивозом. Оберіть улюблену випічку та заберіть її у зручний час.
+            </p>
+          </div>
         </div>
 
         <div class="flex flex-wrap gap-4">

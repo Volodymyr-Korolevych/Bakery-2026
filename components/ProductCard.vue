@@ -1,34 +1,32 @@
 <template>
-  <div class="group rounded-2xl border bg-white p-4 shadow-sm hover:shadow-md transition">
+  <div class="product-card group flex h-full flex-col">
     <NuxtLink :to="`/product/${product.slug}`" class="block">
-      <div class="aspect-[4/3] w-full overflow-hidden rounded-xl bg-slate-100 mb-3">
-        <img
-          v-if="resolvedImageUrl"
-          :src="resolvedImageUrl"
-          :alt="product.name"
-          class="h-full w-full object-cover group-hover:scale-105 transition"
-        />
+      <div class="aspect-[4/3] w-full overflow-hidden rounded-xl bg-slate-100 mb-4">
+        <img v-if="resolvedImageUrl" :src="resolvedImageUrl" :alt="product.name"
+          class="product-card-image mb-0 group-hover:scale-105 transition duration-200" />
       </div>
 
-      <div class="font-medium mb-1">{{ product.name }}</div>
+      <h3 class="product-title">
+        {{ product.name }}
+      </h3>
 
-      <div class="text-sm text-slate-600 flex justify-between items-center mb-3">
-        <span v-if="product.weight_grams">{{ product.weight_grams }} г</span>
-        <span class="font-semibold text-amber-700">₴{{ Number(product.price).toFixed(2) }}</span>
+      <p v-if="product.weight_grams" class="product-meta">
+        {{ product.weight_grams }} г
+      </p>
+
+      <div class="mt-4">
+        <div class="product-price">
+          ₴{{ Number(product.price).toFixed(2) }}
+        </div>
       </div>
     </NuxtLink>
 
-    <button
-      type="button"
-      class="inline-flex w-full items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition"
-      :class="isInCart
-        ? 'bg-slate-200 text-slate-700 cursor-default'
-        : 'bg-amber-500 text-white hover:bg-amber-600'"
-      :disabled="isInCart"
-      @click="handleAddToCart"
-    >
-      {{ isInCart ? 'Вже в кошику' : 'В кошик' }}
-    </button>
+    <div class="mt-5">
+      <button type="button" class="w-full" :class="isInCart ? 'btn-secondary opacity-80 cursor-default' : 'btn-primary'"
+        :disabled="isInCart" @click="handleAddToCart">
+        {{ isInCart ? 'Вже в кошику' : 'В кошик' }}
+      </button>
+    </div>
   </div>
 </template>
 

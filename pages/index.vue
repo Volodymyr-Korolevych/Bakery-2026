@@ -39,7 +39,7 @@
     </section>
 
     <section class="space-y-4">
-      <h2 class="text-xl font-semibold text-textMain">Категорії</h2>
+      <h2 class="section-title">Категорії</h2>
       <CategoriesGrid />
     </section>
   </div>

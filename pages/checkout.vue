@@ -1,84 +1,67 @@
 <template>
-  <div class="max-w-4xl mx-auto px-4 py-8 space-y-6">
-    <h1 class="text-2xl font-semibold tracking-tight mb-4">Оформлення замовлення</h1>
+  <div class="max-w-6xl mx-auto px-6 py-8 space-y-6">
+    <h1 class="page-title">Оформлення замовлення</h1>
 
     <div v-if="!cart.items.length" class="text-sm text-slate-600">
       Кошик порожній. Спочатку додайте товари.
     </div>
 
     <div v-else class="grid gap-6 md:grid-cols-[2fr,1fr] items-start">
-      <form class="space-y-4" @submit.prevent="submit">
+      <form class="content-card space-y-6" @submit.prevent="submit">
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Телефон</label>
-          <div class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm">
+          <label class="field-label">Телефон</label>
+          <div class="field-input flex items-center bg-gray-50 text-gray-700">
             {{ profilePhoneDisplay || 'Номер телефону не вказано' }}
           </div>
-          <p class="mt-1 text-[11px] text-slate-500">
+          <p class="mt-2 text-xs text-gray-500">
             Змінити номер телефону можна в обліковому записі.
           </p>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Пункт самовивозу</label>
-          <select
-            v-model="pickupLocationId"
-            class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500"
-          >
+          <label class="field-label">Пункт самовивозу</label>
+          <select v-model="pickupLocationId" class="field-select">
             <option :value="null">Оберіть пункт</option>
-            <option
-              v-for="loc in pickupLocations"
-              :key="loc.id"
-              :value="loc.id"
-            >
+            <option v-for="loc in pickupLocations" :key="loc.id" :value="loc.id">
               {{ loc.name }} — {{ loc.address }}
             </option>
           </select>
 
-          <p v-if="pickupError" class="mt-1 text-sm text-red-600">
+          <p v-if="pickupError" class="mt-2 text-sm text-red-600">
             {{ pickupError }}
           </p>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Коментар до замовлення</label>
-          <textarea
-            v-model="notes"
-            rows="3"
-            class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500"
-          />
+          <label class="field-label">Коментар до замовлення</label>
+          <textarea v-model="notes" rows="3" class="field-textarea" />
         </div>
 
         <p v-if="phoneError" class="text-sm text-red-600">
           {{ phoneError }}
         </p>
 
-        <button
-          type="submit"
-          class="inline-flex items-center rounded-full bg-amber-500 px-5 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          :disabled="!canSubmit"
-        >
-          Підтвердити замовлення
-        </button>
+        <div>
+          <button type="submit" class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="!canSubmit">
+            Підтвердити замовлення
+          </button>
+        </div>
 
-        <p v-if="error" class="text-sm text-red-600 mt-2">{{ error }}</p>
+        <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
       </form>
 
-      <div class="rounded-2xl border bg-white p-4 shadow-sm space-y-4 text-sm">
+      <div class="summary-card space-y-4 text-sm">
         <div class="space-y-3">
-          <div
-            v-for="item in cart.items"
-            :key="item.product_id"
-            class="flex items-center gap-3"
-          >
-            <img
-              :src="getImage(item.image_url)"
-              :alt="item.name"
-              class="h-12 w-12 rounded-lg border object-cover bg-slate-100 shrink-0"
-            />
+          <div v-for="item in cart.items" :key="item.product_id" class="flex items-center gap-3">
+            <img :src="getImage(item.image_url)" :alt="item.name"
+              class="h-12 w-12 rounded-lg border border-border object-cover bg-slate-100 shrink-0" />
 
             <div class="min-w-0 flex-1">
-              <div class="text-sm font-medium leading-tight">{{ item.name }}</div>
-              <div class="text-[11px] text-slate-500">
+              <div class="text-sm font-medium leading-tight text-textMain">
+                {{ item.name }}
+              </div>
+              <div class="text-xs text-slate-500">
                 {{ item.qty }} × ₴{{ item.price.toFixed(2) }}
                 <span v-if="item.weight_grams"> · {{ item.weight_grams }} г</span>
               </div>
@@ -86,32 +69,28 @@
           </div>
         </div>
 
-        <div class="border-t pt-3 space-y-2">
-          <div class="flex justify-between">
+        <div class="border-t border-border pt-3 space-y-2">
+          <div class="flex justify-between text-gray-700">
             <span>Кількість позицій</span>
             <span>{{ cart.items.length }}</span>
           </div>
 
           <div class="flex justify-between">
-            <span>Сума замовлення</span>
+            <span class="font-medium text-textMain">Сума замовлення</span>
             <span class="font-semibold text-amber-700">₴{{ total.toFixed(2) }}</span>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- SUCCESS POPUP -->
-    <div
-      v-if="showSuccessPopup"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-    >
+    <div v-if="showSuccessPopup" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div class="max-w-lg w-full rounded-3xl bg-white p-8 shadow-2xl text-center space-y-4">
         <div class="text-2xl font-semibold tracking-tight text-slate-900">
           Ваше замовлення прийняте
         </div>
 
         <p class="text-base leading-7 text-slate-700">
-          Очікуйте підтвердження готовності замовлення в Особистому кабінеті
+          Очікуйте підтвердження готовості замовлення в Особистому кабінеті
         </p>
       </div>
     </div>

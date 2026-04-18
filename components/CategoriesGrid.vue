@@ -3,23 +3,14 @@
     <div v-if="pending" class="text-sm text-textSecondary">Завантаження категорій…</div>
     <div v-else-if="error" class="text-sm text-red-600">Помилка завантаження категорій.</div>
 
-    <div v-else class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      <NuxtLink
-        v-for="cat in categories"
-        :key="cat.id"
-        :to="`/categories/${cat.slug}`"
-        class="bg-card rounded-xl shadow-sm border border-border p-4 hover:shadow-md transition group"
-      >
+    <div v-else class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <NuxtLink v-for="cat in categories" :key="cat.id" :to="`/categories/${cat.slug}`" class="catalog-card group">
         <div class="aspect-[4/3] w-full overflow-hidden rounded-xl bg-slate-100 mb-4">
-          <img
-            v-if="cat.image_url"
-            :src="imageUrl(cat.image_url)"
-            :alt="cat.name"
-            class="h-full w-full object-cover group-hover:scale-105 transition"
-          />
+          <img v-if="cat.image_url" :src="imageUrl(cat.image_url)" :alt="cat.name"
+            class="catalog-card-image mb-0 group-hover:scale-105 transition duration-200" />
         </div>
 
-        <div class="text-base font-semibold text-textMain">
+        <div class="catalog-card-title mt-3">
           {{ cat.name }}
         </div>
       </NuxtLink>
@@ -29,9 +20,10 @@
 
 <script setup lang="ts">
 import type { Category } from '~/composables/useCatalog'
-const { isExternalUrl } = useStorageImages()
 
+const { isExternalUrl } = useStorageImages()
 const { fetchCategories } = useCatalog()
+
 const categories = ref<Category[]>([])
 const pending = ref(true)
 const error = ref<Error | null>(null)

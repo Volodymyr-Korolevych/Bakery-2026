@@ -1,14 +1,15 @@
 <template>
-  <div class="max-w-6xl mx-auto px-4 py-8 space-y-6">
-    <header class="flex items-center justify-between">
-      <div class="space-y-1">
-        <h1 class="text-xl font-semibold tracking-tight">Продукти</h1>
-        <p class="text-xs text-slate-600">
+  <div class="max-w-6xl mx-auto px-6 py-10 md:py-12 space-y-8">
+   <header class="flex items-start justify-between gap-6">
+      <div class="space-y-3">
+        <h1 class="page-title mb-0">Продукти</h1>
+        <p class="page-subtitle max-w-2xl">
           Керування продуктами: ціни, описи, вага, фото та належність до категорій.
         </p>
       </div>
-      <NuxtLink to="/admin" class="text-xs text-slate-500 hover:text-slate-700 underline underline-offset-2">
-        ← до панелі
+
+      <NuxtLink to="/admin" class="back-button shrink-0">
+        ← Назад
       </NuxtLink>
     </header>
 

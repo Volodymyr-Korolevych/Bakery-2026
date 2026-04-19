@@ -1,5 +1,19 @@
 <template>
-  <div class="max-w-6xl mx-auto px-4 py-8 grid md:grid-cols-[2fr,1.5fr] gap-6">
+  <div class="max-w-6xl mx-auto px-6 py-10 md:py-12 space-y-8">
+    <header class="flex items-start justify-between gap-6">
+      <div class="space-y-3">
+        <h1 class="page-title mb-0">Замовлення</h1>
+        <p class="page-subtitle max-w-2xl">
+          Перегляд списку замовлень та складу кожного замовлення.
+        </p>
+      </div>
+
+      <NuxtLink to="/admin" class="back-button shrink-0">
+        ← Назад
+      </NuxtLink>
+    </header>
+
+    <div class="grid md:grid-cols-[2fr,1.5fr] gap-6">
 
     <!-- LEFT -->
     <div class="space-y-3">
@@ -94,6 +108,7 @@
       </div>
     </div>
 
+  </div>
   </div>
 </template>
 

@@ -1,70 +1,77 @@
 <template>
-  <div class="max-w-4xl mx-auto px-4 py-10 space-y-8">
-    <header class="space-y-2">
-      <h1 class="text-2xl font-semibold tracking-tight">Адмін-панель</h1>
-      <p class="text-sm text-slate-600">
-        Оберіть розділ для керування даними пекарні
-      </p>
-    </header>
-    <div class="flex items-center justify-between">
+  <div class="max-w-6xl mx-auto px-6 py-10 md:py-14">
+    <div class="max-w-4xl">
+     <header class="flex items-start justify-between gap-6">
+        <div class="space-y-3">
+          <h1 class="page-title mb-0">Адмін-панель</h1>
+          <p class="page-subtitle max-w-2xl">
+            Оберіть розділ для керування даними пекарні
+          </p>
+        </div>
 
-      <button 
-      class="inline-flex items-center rounded-full border border-amber-500 px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50"
-
-      @click="handleSignOut">
-        Вийти
-      </button>
+        <button class="btn-outline-accent text-sm px-3 py-1.5" @click="handleSignOut">
+          Вийти
+        </button>
+      </header>
     </div>
 
-    <div class="grid md:grid-cols-2 gap-4">
-      <NuxtLink
-        to="/admin/categories"
-        class="group rounded-2xl border bg-white p-4 hover:shadow-sm transition-shadow flex flex-col gap-2"
-      >
-        <div class="flex items-center justify-between">
-          <h2 class="text-sm font-semibold">Категорії</h2>
-          <span class="text-xs text-slate-400 group-hover:text-amber-500">→</span>
+    <div class="mt-10 grid gap-6 md:grid-cols-2">
+      <NuxtLink to="/admin/categories" class="admin-panel-card group min-h-[150px] flex flex-col justify-between">
+        <div class="flex items-start justify-between gap-4">
+          <h2 class="text-2xl font-semibold text-textMain">
+            Категорії
+          </h2>
+          <span class="text-lg text-slate-300 transition group-hover:text-primary">
+            →
+          </span>
         </div>
-        <p class="text-xs text-slate-500">
+
+        <p class="text-base leading-7 text-slate-600">
           Перелік категорій товарів, зображення категорій, сортування та статус активності.
         </p>
       </NuxtLink>
 
-      <NuxtLink
-        to="/admin/products"
-        class="group rounded-2xl border bg-white p-4 hover:shadow-sm transition-shadow flex flex-col gap-2"
-      >
-        <div class="flex items-center justify-between">
-          <h2 class="text-sm font-semibold">Продукти</h2>
-          <span class="text-xs text-slate-400 group-hover:text-amber-500">→</span>
+      <NuxtLink to="/admin/products" class="admin-panel-card group min-h-[150px] flex flex-col justify-between">
+        <div class="flex items-start justify-between gap-4">
+          <h2 class="text-2xl font-semibold text-textMain">
+            Продукти
+          </h2>
+          <span class="text-lg text-slate-300 transition group-hover:text-primary">
+            →
+          </span>
         </div>
-        <p class="text-xs text-slate-500">
+
+        <p class="text-base leading-7 text-slate-600">
           Створення та редагування продуктів: ціна, опис, вага, фото, належність до категорії.
         </p>
       </NuxtLink>
 
-      <NuxtLink
-        to="/admin/pickup"
-        class="group rounded-2xl border bg-white p-4 hover:shadow-sm transition-shadow flex flex-col gap-2"
-      >
-        <div class="flex items-center justify-between">
-          <h2 class="text-sm font-semibold">Точки самовивозу</h2>
-          <span class="text-xs text-slate-400 group-hover:text-amber-500">→</span>
+      <NuxtLink to="/admin/pickup" class="admin-panel-card group min-h-[150px] flex flex-col justify-between">
+        <div class="flex items-start justify-between gap-4">
+          <h2 class="text-2xl font-semibold text-textMain">
+            Точки самовивозу
+          </h2>
+          <span class="text-lg text-slate-300 transition group-hover:text-primary">
+            →
+          </span>
         </div>
-        <p class="text-xs text-slate-500">
+
+        <p class="text-base leading-7 text-slate-600">
           Адреси, години роботи та статуси точок видачі замовлень.
         </p>
       </NuxtLink>
 
-      <NuxtLink
-        to="/admin/orders"
-        class="group rounded-2xl border bg-white p-4 hover:shadow-sm transition-shadow flex flex-col gap-2"
-      >
-        <div class="flex items-center justify-between">
-          <h2 class="text-sm font-semibold">Замовлення</h2>
-          <span class="text-xs text-slate-400 group-hover:text-amber-500">→</span>
+      <NuxtLink to="/admin/orders" class="admin-panel-card group min-h-[150px] flex flex-col justify-between">
+        <div class="flex items-start justify-between gap-4">
+          <h2 class="text-2xl font-semibold text-textMain">
+            Замовлення
+          </h2>
+          <span class="text-lg text-slate-300 transition group-hover:text-primary">
+            →
+          </span>
         </div>
-        <p class="text-xs text-slate-500">
+
+        <p class="text-base leading-7 text-slate-600">
           Перегляд списку замовлень та складу кожного замовлення.
         </p>
       </NuxtLink>

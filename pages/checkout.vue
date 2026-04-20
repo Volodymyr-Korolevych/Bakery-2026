@@ -58,10 +58,10 @@
               class="h-12 w-12 rounded-lg border border-border object-cover bg-slate-100 shrink-0" />
 
             <div class="min-w-0 flex-1">
-              <div class="text-sm font-medium leading-tight text-textMain">
+             <div class="text-base font-medium leading-tight text-textMain">
                 {{ item.name }}
               </div>
-              <div class="text-xs text-slate-500">
+             <div class="text-sm text-slate-500 mt-1">
                 {{ item.qty }} × ₴{{ item.price.toFixed(2) }}
                 <span v-if="item.weight_grams"> · {{ item.weight_grams }} г</span>
               </div>
@@ -69,13 +69,13 @@
           </div>
         </div>
 
-        <div class="border-t border-border pt-3 space-y-2">
-          <div class="flex justify-between text-gray-700">
+      <div class="border-t border-border pt-4 space-y-3">
+          <div class="flex justify-between text-base text-gray-700">
             <span>Кількість позицій</span>
             <span>{{ cart.items.length }}</span>
           </div>
 
-          <div class="flex justify-between">
+          <div class="flex justify-between text-lg">
             <span class="font-medium text-textMain">Сума замовлення</span>
             <span class="font-semibold text-amber-700">₴{{ total.toFixed(2) }}</span>
           </div>

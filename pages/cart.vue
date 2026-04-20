@@ -38,7 +38,7 @@
             </div>
 
             <button class="text-xs text-red-600" @click="removeItem(item.product_id)">
-              Прибрати
+              Вилучити
             </button>
           </div>
         </div>

@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-6xl mx-auto px-6 py-8 space-y-6">
+  <div class="max-w-6xl mx-auto px-6 py-10 md:py-12 space-y-8">
     <h1 class="page-title">Оформлення замовлення</h1>
 
     <div v-if="!cart.items.length" class="text-sm text-slate-600">
@@ -7,12 +7,17 @@
     </div>
 
     <div v-else class="grid gap-6 md:grid-cols-[2fr,1fr] items-start">
-      <form class="content-card space-y-6" @submit.prevent="submit">
+
+      <!-- ЛІВА КОЛОНКА -->
+      <form class="content-card space-y-5" @submit.prevent="submit">
+
         <div>
           <label class="field-label">Телефон</label>
-          <div class="field-input flex items-center bg-gray-50 text-gray-700">
+
+          <div class="h-11 flex items-center rounded-xl border border-border bg-gray-50 px-4 text-[15px] text-gray-700">
             {{ profilePhoneDisplay || 'Номер телефону не вказано' }}
           </div>
+
           <p class="mt-2 text-xs text-gray-500">
             Змінити номер телефону можна в обліковому записі.
           </p>
@@ -20,6 +25,7 @@
 
         <div>
           <label class="field-label">Пункт самовивозу</label>
+
           <select v-model="pickupLocationId" class="field-select">
             <option :value="null">Оберіть пункт</option>
             <option v-for="loc in pickupLocations" :key="loc.id" :value="loc.id">
@@ -34,6 +40,7 @@
 
         <div>
           <label class="field-label">Коментар до замовлення</label>
+
           <textarea v-model="notes" rows="3" class="field-textarea" />
         </div>
 
@@ -41,45 +48,54 @@
           {{ phoneError }}
         </p>
 
-        <div>
-          <button type="submit" class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+        <div class="pt-2">
+          <button type="submit" class="btn-primary !py-2.5 !px-5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             :disabled="!canSubmit">
             Підтвердити замовлення
           </button>
         </div>
 
-        <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+        <p v-if="error" class="text-sm text-red-600">
+          {{ error }}
+        </p>
       </form>
 
-      <div class="summary-card space-y-4 text-sm">
-        <div class="space-y-3">
+      <!-- ПРАВА КОЛОНКА -->
+      <div class="summary-card space-y-6 border border-border/70">
+
+        <div class="space-y-5">
           <div v-for="item in cart.items" :key="item.product_id" class="flex items-center gap-3">
             <img :src="getImage(item.image_url)" :alt="item.name"
               class="h-12 w-12 rounded-lg border border-border object-cover bg-slate-100 shrink-0" />
 
             <div class="min-w-0 flex-1">
-             <div class="text-base font-medium leading-tight text-textMain">
+              <div class="text-[17px] font-medium leading-tight text-textMain">
                 {{ item.name }}
               </div>
-             <div class="text-sm text-slate-500 mt-1">
+
+              <div class="text-[15px] text-slate-600 mt-1">
                 {{ item.qty }} × ₴{{ item.price.toFixed(2) }}
-                <span v-if="item.weight_grams"> · {{ item.weight_grams }} г</span>
+                <span v-if="item.weight_grams" class="mx-1 text-slate-400">•</span>
+                <span v-if="item.weight_grams">{{ item.weight_grams }} г</span>
               </div>
             </div>
           </div>
         </div>
 
-      <div class="border-t border-border pt-4 space-y-3">
-          <div class="flex justify-between text-base text-gray-700">
+        <div class="border-t border-border pt-4 space-y-3">
+          <div class="flex justify-between text-[15px] text-gray-600">
             <span>Кількість позицій</span>
             <span>{{ cart.items.length }}</span>
           </div>
 
-          <div class="flex justify-between text-lg">
+          <div class="flex justify-between text-xl">
             <span class="font-medium text-textMain">Сума замовлення</span>
-            <span class="font-semibold text-amber-700">₴{{ total.toFixed(2) }}</span>
+            <span class="font-semibold text-xl text-amber-700">
+              ₴{{ total.toFixed(2) }}
+            </span>
           </div>
         </div>
+
       </div>
     </div>
 

@@ -1,64 +1,61 @@
 <template>
-  <div class="max-w-4xl mx-auto px-4 py-8 space-y-6">
-    <h1 class="text-2xl font-semibold tracking-tight mb-2">Кошик</h1>
+  <div class="max-w-6xl mx-auto px-6 py-10 md:py-12 space-y-8">
+    <h1 class="page-title">Кошик</h1>
 
-    <div v-if="!cart.items.length" class="text-sm text-slate-600">
+    <div v-if="!cart.items.length" class="content-card text-sm text-slate-600">
       Кошик порожній. Додайте товари з каталогу.
     </div>
 
     <div v-else class="grid gap-6 md:grid-cols-[2fr,1fr] items-start">
-      <div class="space-y-4">
-        <div
-          v-for="item in cart.items"
-          :key="item.product_id"
-          class="flex items-center gap-4 rounded-2xl border bg-white px-4 py-3 shadow-sm"
-        >
-          <img
-            :src="getImage(item.image_url)"
-            :alt="item.name"
-            class="h-20 w-20 rounded-xl border object-cover bg-slate-100 shrink-0"
-          />
+      <div class="space-y-5">
+        <div v-for="item in cart.items" :key="item.product_id" class="content-card flex items-center gap-5">
+          <img :src="getImage(item.image_url)" :alt="item.name"
+            class="h-24 w-24 rounded-xl border border-border object-cover bg-slate-100 shrink-0" />
 
           <div class="flex-1 min-w-0">
-            <div class="font-medium">{{ item.name }}</div>
-            <div class="text-xs text-slate-500" v-if="item.weight_grams">
+            <div class="text-xl font-semibold leading-tight text-textMain">
+              {{ item.name }}
+            </div>
+            <div class="mt-1 text-sm text-slate-500" v-if="item.weight_grams">
               {{ item.weight_grams }} г
             </div>
           </div>
 
-          <div class="flex items-center gap-3 text-sm shrink-0">
-            <div class="flex items-center border rounded-full overflow-hidden">
-              <button class="px-2" @click="dec(item.product_id)">-</button>
-              <span class="px-3 border-l border-r">{{ item.qty }}</span>
-              <button class="px-2" @click="inc(item.product_id)">+</button>
+          <div class="flex items-center gap-5 text-sm shrink-0">
+            <div class="qty-control">
+              <button class="qty-btn" @click="dec(item.product_id)">-</button>
+              <span class="qty-value">{{ item.qty }}</span>
+              <button class="qty-btn" @click="inc(item.product_id)">+</button>
             </div>
 
-            <div class="w-20 text-right font-medium">
+            <div class="w-24 text-right text-lg font-semibold text-textMain">
               ₴{{ (item.price * item.qty).toFixed(2) }}
             </div>
 
-            <button class="text-xs text-red-600" @click="removeItem(item.product_id)">
+            <button class="text-sm font-medium text-red-600 transition hover:text-red-700"
+              @click="removeItem(item.product_id)">
               Вилучити
             </button>
           </div>
         </div>
       </div>
 
-      <div class="rounded-2xl border bg-white p-4 shadow-sm space-y-3 text-sm">
-        <div class="flex justify-between">
-          <span>Кількість позицій</span>
-          <span>{{ cart.items.length }}</span>
+      <div class="summary-card space-y-6">
+        <div class="space-y-3">
+          <div class="flex justify-between text-base text-gray-700">
+            <span>Кількість позицій</span>
+            <span>{{ cart.items.length }}</span>
+          </div>
+
+          <div class="flex justify-between text-xl">
+            <span class="font-medium text-textMain">Сума замовлення</span>
+            <span class="font-semibold text-xl text-amber-700">
+              ₴{{ total.toFixed(2) }}
+            </span>
+          </div>
         </div>
 
-        <div class="flex justify-between">
-          <span>Сума замовлення</span>
-          <span class="font-semibold text-amber-700">₴{{ total.toFixed(2) }}</span>
-        </div>
-
-        <NuxtLink
-          to="/checkout"
-          class="mt-2 inline-flex w-full items-center justify-center rounded-full bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
-        >
+        <NuxtLink to="/checkout" class="btn-primary w-full">
           Оформити замовлення
         </NuxtLink>
       </div>

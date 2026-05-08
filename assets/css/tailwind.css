@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+html,
+body {
+    caret-color: transparent;
+}
+
+input,
+textarea {
+    caret-color: black;
+}
+
+
+
 /* 🟠 Глобальна типографіка */
 @layer base {
     h1 {
